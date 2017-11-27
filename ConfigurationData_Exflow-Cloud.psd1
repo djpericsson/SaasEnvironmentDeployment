@@ -37,6 +37,11 @@
                 GlobalConfiguration = $True
             }
 
+            HybridConnection = @{
+                Name                = "SignUp-navlabexflowcloud"
+                Namespace           = "SignUp-navlabexflowcloudbus"
+            }
+
             AppServicePlan = @{
                 Name                = "[ResourceGroup]" 
                 Tier                = "Free"
@@ -97,6 +102,7 @@
         PackageURL                      = "https://exflowpackagemanager.azurewebsites.net"
         LocalPath                       = $env:TEMP
         LogFile                         = "SaaS-RegistrationDeployment.log"
+        LogEnabled                      = $True
 
         Prerequisites = @{
             AzureRmRoleAssignmentValidation = $True
@@ -104,10 +110,18 @@
             Modules = @(
                 @{
                     Name                    = "AzureRM"
-                    MinimumVersion          = "4.0.2"
+                    RequiredVersion         = "4.4.1"
                 }
             )
         }
+
+        AzureRmAutomationAccount =
+        @(
+            @{
+                Name               = 'AzureRmRunAsAccount'
+                Description        = 'Used for Azure Automation'
+            }
+        )
 
         Storage = @{   
             Type       = "Standard_LRS"
