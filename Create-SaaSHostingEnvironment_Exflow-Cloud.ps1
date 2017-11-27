@@ -295,7 +295,7 @@ If (!$AzureRmResourceProvider) { Break }
 #endregion
 
 #region Create DNS Zone
-$AzureRmDnsZoneName = "$((Remove-IllegalCharactersFromString -String ($ConfigurationData.SaaSService.ResourceGroup).ToLower())).$Directory"
+$AzureRmDnsZoneName = $Directory
 If (-not($AzureRmDnsZone = Get-AzureRmDnsZone -Name $AzureRmDnsZoneName –ResourceGroupName $ConfigurationData.SaaSService.ResourceGroup -ErrorAction SilentlyContinue)) {
     Write-Output "$Header`nNew-AzureRmDnsZone`n$Header"
 
@@ -532,61 +532,6 @@ ForEach ($ResourceGroup in $ConfigurationData.ResourceGroups) {
         }
     }
 
-    #Verify AzureRmDnsRecordSet
-    ForEach ($DnsRecordSet in $ResourceGroup.DnsRecordSet) {
-        $DnsRecordSetName = $DnsRecordSet.Name.Replace("[ResourceGroup]",$ResourceGroup.Name)
-
-        If ($DnsRecordSet.GlobalConfiguration) {
-            $RecordType = $ConfigurationData.GlobalConfiguration.DnsRecordSet.RecordType
-            $Ttl        = $ConfigurationData.GlobalConfiguration.DnsRecordSet.Ttl
-            $DnsRecords = $ConfigurationData.GlobalConfiguration.DnsRecordSet.DnsRecords
-        }
-        Else {
-            $RecordType = $DnsRecordSet.RecordType
-            $Ttl        = $DnsRecordSet.Ttl
-            $DnsRecords = $DnsRecordSet.DnsRecords
-        }
-
-        If (-not($AzureRmDnsRecordSet = Get-AzureRmDnsRecordSet -Name $DnsRecordSetName -RecordType $RecordType -ZoneName $AzureRmDnsZoneName -ResourceGroupName $ConfigurationData.SaaSService.ResourceGroup -ErrorAction SilentlyContinue)) {
-            Write-Output "New-AzureRmDnsRecordSet`n$Header"
-
-            $AzureRmDnsRecordSetParams = $null
-
-            If ($RecordType -eq "CNAME") {
-                $DnsRecordsValue = $DnsRecords.Replace("[ResourceGroup]",$DnsRecordSetName)
-                $DnsRecords = (New-AzureRmDnsRecordConfig -Cname $DnsRecordsValue)
-            }
-            Else {
-                $DnsRecords = (New-AzureRmDnsRecordConfig -IPv4Address $DnsRecordSet.DnsRecords)
-            }
-
-            $AzureRmDnsRecordSetParams = @{
-                Name                   = $DnsRecordSetName
-                RecordType             = $RecordType
-                ZoneName               = $AzureRmDnsZoneName
-                ResourceGroupName      = $ConfigurationData.SaaSService.ResourceGroup
-                Ttl                    = $Ttl
-                DnsRecords             = $DnsRecords
-            }
-
-            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "New-AzureRmDnsRecordSet -$($AzureRmDnsRecordSetParams.Keys.ForEach({"$_ '$($AzureRmDnsRecordSetParams.$_)'"}) -join ' -')" -Severity I -Category "AzureRmDnsRecordSet" } Catch {} }
-
-            Try {
-                $AzureRmDnsRecordSet = New-AzureRmDnsRecordSet @AzureRmDnsRecordSetParams -ErrorAction Stop
-
-                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureRmDnsRecordSet -Severity I -Category "AzureRmDnsRecordSet" } Catch {} }
-
-                Write-Output $AzureRmDnsRecordSet
-            }
-            Catch {
-                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureRmDnsRecordSet" } Catch {} }
-
-                Write-Error $_
-            }
-        }
-    }
-    If (!$AzureRmDnsRecordSet) { Break }
-
     #Verify AzureRmAutomationAccount
     If ($ResourceGroup.AzureRmAutomationAccount.Name) {
 
@@ -729,14 +674,21 @@ ForEach ($ResourceGroup in $ConfigurationData.ResourceGroups) {
     }
 
     #Verify App Service Plan
-    $AzureRmWebAppName = $ResourceGroup.AppServicePlan.Name.Replace("[ResourceGroup]",$ResourceGroup.Name)
+    $AzureRmAppServicePlanName = $ResourceGroup.AppServicePlan.Name.Replace("[ResourceGroup]",$ResourceGroup.Name)
 
-    If (-not($AzureRmAppServicePlan = Get-AzureRmAppServicePlan -Name $AzureRmWebAppName -ResourceGroupName $ResourceGroup.Name -ErrorAction SilentlyContinue)) {
+    $AzureRmAppServicePlanName = Remove-IllegalCharactersFromString -String $AzureRmAppServicePlanName.ToLower()
+    If ($AzureRmAppServicePlanName.Length -lt $configurationData.GlobalConfiguration.ShortNameCharacters) {
+        $AzureRmAppServicePlanName = "$AzureRmAppServicePlanName$(Get-TruncatedStringHash -String $AzureRmAppServicePlanName -Length ($configurationData.GlobalConfiguration.ShortNameCharacters - $AzureRmAppServicePlanName.Length))"
+    } else {
+        $AzureRmAppServicePlanName = $AzureRmAppServicePlanName.SubString(0,$configurationData.GlobalConfiguration.ShortNameCharacters)
+    }
+
+    If (-not($AzureRmAppServicePlan = Get-AzureRmAppServicePlan -Name $AzureRmAppServicePlanName -ResourceGroupName $ResourceGroup.Name -ErrorAction SilentlyContinue)) {
         
         Write-Output "New-AzureRmAppServicePlan`n$Header"
 
         $AzureRmAppServicePlanParams = @{
-            Name              = $AzureRmWebAppName
+            Name              = $AzureRmAppServicePlanName
             Location          = $ResourceGroup.Location
             ResourceGroupName = $ResourceGroup.Name
             Tier              = $ResourceGroup.AppServicePlan.Tier
@@ -766,6 +718,66 @@ ForEach ($ResourceGroup in $ConfigurationData.ResourceGroups) {
     ForEach ($AzureRmWebAppKeys in $ResourceGroup.WebApp.Keys) {
         $AzureRmWebAppName = $AzureRmWebAppKeys.Replace("[ResourceGroup]",$ResourceGroup.Name)
 
+        $AzureRmWebAppName = Remove-IllegalCharactersFromString -String $AzureRmWebAppName.ToLower()
+        If ($AzureRmWebAppName.Length -lt $configurationData.GlobalConfiguration.ShortNameCharacters) {
+            $AzureRmWebAppName = "$AzureRmWebAppName$(Get-TruncatedStringHash -String $AzureRmWebAppName -Length ($configurationData.GlobalConfiguration.ShortNameCharacters - $AzureRmWebAppName.Length))"
+        } else {
+            $AzureRmWebAppName = $AzureRmWebAppName.SubString(0,$configurationData.GlobalConfiguration.ShortNameCharacters)
+        }
+
+        #Verify AzureRmDnsRecordSet
+        $DnsRecordSetName = $AzureRmWebAppName
+
+        If ($ResourceGroup.DnsRecordSet.GlobalConfiguration) {
+            $RecordType = $ConfigurationData.GlobalConfiguration.DnsRecordSet.RecordType
+            $Ttl        = $ConfigurationData.GlobalConfiguration.DnsRecordSet.Ttl
+            $DnsRecords = $ConfigurationData.GlobalConfiguration.DnsRecordSet.DnsRecords
+        }
+        Else {
+            $RecordType = $ResourceGroup.DnsRecordSet.RecordType
+            $Ttl        = $ResourceGroup.DnsRecordSet.Ttl
+            $DnsRecords = $ResourceGroup.DnsRecordSet.DnsRecords
+        }
+
+        If (-not($AzureRmDnsRecordSet = Get-AzureRmDnsRecordSet -Name $DnsRecordSetName -RecordType $RecordType -ZoneName $AzureRmDnsZoneName -ResourceGroupName $ConfigurationData.SaaSService.ResourceGroup -ErrorAction SilentlyContinue)) {
+            Write-Output "New-AzureRmDnsRecordSet`n$Header"
+
+            $AzureRmDnsRecordSetParams = $null
+
+            If ($RecordType -eq "CNAME") {
+                $DnsRecordsValue = $DnsRecords.Replace("[ResourceGroup]",$DnsRecordSetName)
+                $DnsRecords = (New-AzureRmDnsRecordConfig -Cname $DnsRecordsValue)
+            }
+            Else {
+                $DnsRecords = (New-AzureRmDnsRecordConfig -IPv4Address $DnsRecordSet.DnsRecords)
+            }
+
+            $AzureRmDnsRecordSetParams = @{
+                Name                   = $DnsRecordSetName
+                RecordType             = $RecordType
+                ZoneName               = $AzureRmDnsZoneName
+                ResourceGroupName      = $ConfigurationData.SaaSService.ResourceGroup
+                Ttl                    = $Ttl
+                DnsRecords             = $DnsRecords
+            }
+
+            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "New-AzureRmDnsRecordSet -$($AzureRmDnsRecordSetParams.Keys.ForEach({"$_ '$($AzureRmDnsRecordSetParams.$_)'"}) -join ' -')" -Severity I -Category "AzureRmDnsRecordSet" } Catch {} }
+
+            Try {
+                $AzureRmDnsRecordSet = New-AzureRmDnsRecordSet @AzureRmDnsRecordSetParams -ErrorAction Stop
+
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureRmDnsRecordSet -Severity I -Category "AzureRmDnsRecordSet" } Catch {} }
+
+                Write-Output $AzureRmDnsRecordSet
+            }
+            Catch {
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureRmDnsRecordSet" } Catch {} }
+
+                Write-Error $_
+            }
+        }
+        If (!$AzureRmDnsRecordSet) { Break }
+
         $NewAzureRmWebApp = $False
 
         If (-not($AzureRmWebApp = Get-AzureRmWebApp -Name $AzureRmWebAppName -ResourceGroupName $ResourceGroup.Name -ErrorAction SilentlyContinue)) {
@@ -777,7 +789,7 @@ ForEach ($ResourceGroup in $ConfigurationData.ResourceGroups) {
                 Name              = $AzureRmWebAppName
                 Location          = $ResourceGroup.Location
                 ResourceGroupName = $ResourceGroup.Name
-                AppServicePlan    = $ResourceGroup.Name
+                AppServicePlan    = $AzureRmAppServicePlanName
             }
 
             if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "New-AzureRmWebApp -$($AzureRmWebAppParams.Keys.ForEach({"$_ '$($AzureRmWebAppParams.$_)'"}) -join ' -')" -Severity I -Category "AzureRmWebApp" } Catch {} }
@@ -789,7 +801,7 @@ ForEach ($ResourceGroup in $ConfigurationData.ResourceGroups) {
 
                 Write-Output $AzureRmWebApp
 
-                Start-Sleep 15
+                Start-Sleep 30
             }
             Catch {
                 if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureRmWebApp" } Catch {} }
@@ -802,6 +814,33 @@ ForEach ($ResourceGroup in $ConfigurationData.ResourceGroups) {
         }
 
         If (!$AzureRmWebApp) { Break }
+
+        If ($ResourceGroup.AppServicePlan.Tier -ne "Free") {
+            If (!($AzureRmWebApp.HostNames -like "*$AzureRmWebAppName.$Directory*")) {
+                Write-Output "Set-AzureRmWebApp`n$Header"
+
+                $SetAzureRmWebAppParams = @{
+                    Name              = $AzureRmWebAppName
+                    ResourceGroupName = $ResourceGroup.Name
+                    HostNames         = @("$AzureRmWebAppName.$Directory","$AzureRmWebAppName.azurewebsites.net")
+                }
+
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "Set-AzureRmWebApp -$($SetAzureRmWebAppParams.Keys.ForEach({"$_ '$($SetAzureRmWebAppParams.$_)'"}) -join ' -')" -Severity I -Category "AzureRmWebApp" } Catch {} }
+            
+                Try {
+                    $SetAzureRmWebApp = Set-AzureRmWebApp @SetAzureRmWebAppParams -ErrorAction Stop
+
+                    if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $SetAzureRmWebApp -Severity I -Category "AzureRmWebApp" } Catch {} }
+
+                    Write-Output $SetAzureRmWebApp
+                }
+                Catch {
+                    if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureRmWebApp" } Catch {} }
+
+                    Write-Error $_
+                }
+            }
+        }
 
         If ($NewAzureRmWebApp -or $ResourceGroup.WebApp.$AzureRmWebAppKeys.AlwaysUpdate) {
             #Upload Zip binaries
@@ -883,7 +922,7 @@ ForEach ($ResourceGroup in $ConfigurationData.ResourceGroups) {
             }
         }
 
-        $MyAzureRmWebApp = Get-AzureRmWebApp -Name $ResourceGroup.Name -ResourceGroupName $ResourceGroup.Name | Select -ExpandProperty SiteConfig | Select -ExpandProperty AppSettings
+        $MyAzureRmWebApp = Get-AzureRmWebApp -Name $AzureRmWebAppName -ResourceGroupName $ResourceGroup.Name | Select -ExpandProperty SiteConfig | Select -ExpandProperty AppSettings
 
         [hashtable]$cAppSettings = @{}
         ForEach ($item in $MyAzureRmWebApp) {
@@ -908,7 +947,7 @@ ForEach ($ResourceGroup in $ConfigurationData.ResourceGroups) {
 
         If ($AppSettingsUpdate) {
             $SetAzureRmWebAppParams = @{
-                Name              = $ResourceGroup.Name
+                Name              = $AzureRmWebAppName
                 ResourceGroupName = $ResourceGroup.Name
                 AppSettings       = $AppSettings
             }

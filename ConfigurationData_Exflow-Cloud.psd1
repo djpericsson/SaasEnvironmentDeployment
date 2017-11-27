@@ -52,18 +52,16 @@
                     "[ResourceGroup]" = @{
                         SourceRepo          = "C:\temp\alis.zip"
                         GlobalConfiguration = $True
-                        AlwaysUpdate        = $False
+                        AlwaysUpdate        = $True
                     }
                 }
 
             )
 
-            DnsRecordSet = @(
-                @{
-                    Name                = "[ResourceGroup]"
-                    GlobalConfiguration = $True
-                }
-            )
+            DnsRecordSet = @{
+                Name                = "[ResourceGroup]"
+                GlobalConfiguration = $True
+            }
 
             AzureRmAutomationAccount = @{
                 Name                 = "[ResourceGroup]"
@@ -100,9 +98,12 @@
 
         RedistPath                      = "https://github.com/djpericsson/AzureWebAppDeploy/raw/master"
         PackageURL                      = "https://exflowpackagemanager.azurewebsites.net"
+
         LocalPath                       = $env:TEMP
         LogFile                         = "SaaS-RegistrationDeployment.log"
         LogEnabled                      = $True
+
+        ShortNameCharacters             = "19"
 
         Prerequisites = @{
             AzureRmRoleAssignmentValidation = $True

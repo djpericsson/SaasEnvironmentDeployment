@@ -16,6 +16,29 @@
     return $String
 }
 
+Function Get-TruncatedStringHash
+{ 
+    Param
+    (
+        [ValidateNotNullOrEmpty()]
+        [String]
+        $String,
+
+        [ValidateNotNullOrEmpty()]
+        [String]
+        $HashName = "SHA512",
+
+        [ValidateNotNullOrEmpty()]
+        [int]
+        $Length = 21
+    )
+    $StringBuilder = New-Object System.Text.StringBuilder 
+    [System.Security.Cryptography.HashAlgorithm]::Create($HashName).ComputeHash([System.Text.Encoding]::UTF8.GetBytes($String))|%{ 
+        [Void]$StringBuilder.Append($_.ToString("x2"))
+    } 
+    $StringBuilder.ToString().Substring(0,$Length)
+}
+
 Function Get-AzureRmWebAppPublishingCredentials {
     param(
         [Parameter(Mandatory=$True)]
@@ -77,7 +100,7 @@ Function Remove-FilesFromWebApp {
         dir = "site\\wwwroot"
     }
 
-    $apiUrl = "https://$ResourceGroupName.$($ConfigurationData.GlobalConfiguration.KuduAPI.URI)$($ConfigurationData.GlobalConfiguration.KuduAPI.Command)/"
+    $apiUrl = "https://$WebAppName.$($ConfigurationData.GlobalConfiguration.KuduAPI.URI)$($ConfigurationData.GlobalConfiguration.KuduAPI.Command)/"
 
     Invoke-RestMethod -Uri $apiUrl -Headers @{"Authorization"=$AuthorisationToken;"If-Match"="*"} -Method POST -ContentType "application/json" -Body (ConvertTo-Json $commandBody) -TimeoutSec $Timeout | Out-Null
 }
@@ -96,7 +119,7 @@ Function Set-FileToWebApp {
 
     $AuthorisationToken = Get-KuduApiAuthorisationHeaderValue -ResourceGroupName $ResourceGroupName -WebAppName $WebAppName
 
-    $apiUrl = "https://$ResourceGroupName.$($ConfigurationData.GlobalConfiguration.KuduAPI.URI)$($ConfigurationData.GlobalConfiguration.KuduAPI.Zip)/"
+    $apiUrl = "https://$WebAppName.$($ConfigurationData.GlobalConfiguration.KuduAPI.URI)$($ConfigurationData.GlobalConfiguration.KuduAPI.Zip)/"
 
     $Result = Invoke-RestMethod -Uri $apiUrl -Headers @{"Authorization"=$AuthorisationToken;"If-Match"="*"} -UserAgent "powershell/1.0" -Method PUT -InFile $FileName -ContentType "multipart/form-data"
 
