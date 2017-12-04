@@ -1029,7 +1029,8 @@ ForEach ($Customer in $ConfigurationData.Customers.Keys) {
 
                 if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureKeyVaultSecretParams -Severity I -Category "AzureKeyVaultSecret" } Catch {} }
 
-                Write-Output $AzureKeyVaultSecretParams | Format-Table
+                Write-Output $Secret.Keys
+                Write-Output ""
             }
             Catch {
                 if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureKeyVaultSecret" } Catch {} }
@@ -1077,7 +1078,8 @@ ForEach ($Customer in $ConfigurationData.Customers.Keys) {
 
                     if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureKeyVaultSecretParams -Severity I -Category "AzureKeyVaultSecret" } Catch {} }
 
-                    Write-Output $AzureKeyVaultSecretParams | Format-Table
+                    Write-Output $Secret.Keys
+                    Write-Output ""
                 }
                 Catch {
                     if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureKeyVaultSecret" } Catch {} }

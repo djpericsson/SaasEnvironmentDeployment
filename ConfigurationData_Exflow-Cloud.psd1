@@ -195,7 +195,7 @@
                         security_TicketFormsTestSiteUsers = "none@nowhere.no"
                         dynamicsChannel                   = ""
                         clientTypeName                    = "ExFlow.Logic.NAVServiceReference20170921.EXFWEB_PortClient,ExFlow.Logic"
-                        company                           = "Test Company AB"
+                        company                           = "My Test Company"
                         security_Admins                   = "BB,CC"
                         StorageConnection                 = "DefaultEndpointsProtocol=https;AccountName=[ResourceGroup];AccountKey=[Key];EndpointSuffix=core.windows.net"
                         KeyValueStorageConnection         = "DefaultEndpointsProtocol=https;AccountName=[ResourceGroup];AccountKey=[Key];EndpointSuffix=core.windows.net"
