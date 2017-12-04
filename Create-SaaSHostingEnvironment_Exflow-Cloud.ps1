@@ -1027,9 +1027,9 @@ ForEach ($Customer in $ConfigurationData.Customers.Keys) {
             Try {
                 $AzureKeyVaultSecret = Set-AzureKeyVaultSecret @AzureKeyVaultSecretParams -ErrorAction Stop
 
-                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureKeyVaultSecret -Severity I -Category "AzureKeyVaultSecret" } Catch {} }
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureKeyVaultSecretParams -Severity I -Category "AzureKeyVaultSecret" } Catch {} }
 
-                Write-Output $AzureKeyVaultSecret
+                Write-Output $AzureKeyVaultSecretParams | Format-Table
             }
             Catch {
                 if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureKeyVaultSecret" } Catch {} }
@@ -1066,8 +1066,8 @@ ForEach ($Customer in $ConfigurationData.Customers.Keys) {
                 $AzureKeyVaultSecretParams = @{
                     Name        = (Remove-IllegalCharactersFromString -String $Customer).ToLower()
                     SecretValue = (ConvertTo-SecureString $(ConvertTo-Json $Secret) -AsPlainText -Force)
-                    ContentType = "Customer"
-                    VaultName   = $Customer.ResourceGroup
+                    ContentType = "AppSettings"
+                    VaultName   = $ConfigurationData.Customers.$Customer.ResourceGroup
                 }
 
                 if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "Set-AzureKeyVaultSecret -$($AzureKeyVaultSecretParams.Keys.ForEach({"$_ '$($AzureKeyVaultSecretParams.$_)'"}) -join ' -')" -Severity I -Category "AzureKeyVaultSecret" } Catch {} }
@@ -1075,9 +1075,9 @@ ForEach ($Customer in $ConfigurationData.Customers.Keys) {
                 Try {
                     $AzureKeyVaultSecret = Set-AzureKeyVaultSecret @AzureKeyVaultSecretParams -ErrorAction Stop
 
-                    if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureKeyVaultSecret -Severity I -Category "AzureKeyVaultSecret" } Catch {} }
+                    if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureKeyVaultSecretParams -Severity I -Category "AzureKeyVaultSecret" } Catch {} }
 
-                    Write-Output $AzureKeyVaultSecret
+                    Write-Output $AzureKeyVaultSecretParams | Format-Table
                 }
                 Catch {
                     if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureKeyVaultSecret" } Catch {} }
