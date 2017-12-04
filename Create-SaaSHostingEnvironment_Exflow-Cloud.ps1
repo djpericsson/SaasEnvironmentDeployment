@@ -145,68 +145,72 @@ Else {
 #endregion
 
 #region Create Azure Key Vault
-$AzureRmKeyVaultName = $ConfigurationData.SaaSService.KeyVault.Name.Replace("[ResourceGroup]",$ConfigurationData.SaaSService.ResourceGroup)
+If ($ConfigurationData.SaaSService.KeyVault) {
+    $AzureRmKeyVaultName = $ConfigurationData.SaaSService.KeyVault.Name.Replace("[ResourceGroup]",$ConfigurationData.SaaSService.ResourceGroup)
 
-If ((Get-AzureRmResourceGroup -Name $ConfigurationData.SaaSService.ResourceGroup -ErrorAction SilentlyContinue) -and -not($AzureRmKeyVault = Get-AzureRMKeyVault -VaultName $AzureRmKeyVaultName -ErrorAction SilentlyContinue)) {
-    Write-Output "$Header`nNew-AzureRmKeyVault`n$Header"
+    If ((Get-AzureRmResourceGroup -Name $ConfigurationData.SaaSService.ResourceGroup -ErrorAction SilentlyContinue) -and -not($AzureRmKeyVault = Get-AzureRMKeyVault -VaultName $AzureRmKeyVaultName -ErrorAction SilentlyContinue)) {
+        Write-Output "$Header`nNew-AzureRmKeyVault`n$Header"
 
-    $AzureRmKeyVaultParams = @{
-        VaultName         = $AzureRmKeyVaultName
-        ResourceGroupName = $ConfigurationData.SaaSService.ResourceGroup
-        Location          = $ConfigurationData.SaaSService.Location
-        Sku               = $ConfigurationData.SaaSService.KeyVault.SKU
-        Tags              = $ConfigurationData.SaaSService.Tags
+        $AzureRmKeyVaultParams = @{
+            VaultName         = $AzureRmKeyVaultName
+            ResourceGroupName = $ConfigurationData.SaaSService.ResourceGroup
+            Location          = $ConfigurationData.SaaSService.Location
+            Sku               = $ConfigurationData.SaaSService.KeyVault.SKU
+            Tags              = $ConfigurationData.SaaSService.Tags
+        }
+
+        if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "New-AzureRmKeyVault -$($AzureRmKeyVaultParams.Keys.ForEach({"$_ '$($AzureRmKeyVaultParams.$_)'"}) -join ' -')" -Severity I -Category "AzureRmKeyVault" } Catch {} }
+
+        Try {
+            $AzureRmKeyVault = New-AzureRmKeyVault @AzureRmKeyVaultParams -ErrorAction Stop
+
+            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureRmKeyVault -Severity I -Category "AzureRmKeyVault" } Catch {} }
+
+            Write-Output $AzureRmKeyVault
+        }
+        Catch {
+            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureRmKeyVault" } Catch {} }
+
+            Write-Error $_
+        }
     }
-
-    if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "New-AzureRmKeyVault -$($AzureRmKeyVaultParams.Keys.ForEach({"$_ '$($AzureRmKeyVaultParams.$_)'"}) -join ' -')" -Severity I -Category "AzureRmKeyVault" } Catch {} }
-
-    Try {
-        $AzureRmKeyVault = New-AzureRmKeyVault @AzureRmKeyVaultParams -ErrorAction Stop
-
+    Else {
         if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureRmKeyVault -Severity I -Category "AzureRmKeyVault" } Catch {} }
-
-        Write-Output $AzureRmKeyVault
     }
-    Catch {
-        if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureRmKeyVault" } Catch {} }
-
-        Write-Error $_
-    }
+    If (!$AzureRmKeyVault) { Break }
 }
-Else {
-    if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureRmKeyVault -Severity I -Category "AzureRmKeyVault" } Catch {} }
-}
-If (!$AzureRmKeyVault) { Break }
 #endregion
 
 #region Create Azure Key Vault Secret
-ForEach ($Secret in $ConfigurationData.SaaSService.KeyVault.Secrets.Keys) {
-    ForEach ($Value in $ConfigurationData.SaaSService.KeyVault.Secrets.$Secret.Keys) {
-        $cleanValue = $Value
-        @("_","-") | ForEach-Object { $cleanValue = $cleanValue.Replace($_,"") }
-        If (-not($AzureKeyVaultSecret = (Get-AzureKeyVaultSecret -VaultName $AzureRmKeyVaultName -Name $cleanValue -ErrorAction SilentlyContinue).SecretValueText)) {
-            Write-Output "$Header`nSet-AzureKeyVaultSecret`n$Header"
+If ($ConfigurationData.SaaSService.KeyVault.Secrets) {
+    ForEach ($Secret in $ConfigurationData.SaaSService.KeyVault.Secrets.Keys) {
+        ForEach ($Value in $ConfigurationData.SaaSService.KeyVault.Secrets.$Secret.Keys) {
+            $cleanValue = $Value
+            @("_","-") | ForEach-Object { $cleanValue = $cleanValue.Replace($_,"") }
+            If (-not($AzureKeyVaultSecret = (Get-AzureKeyVaultSecret -VaultName $AzureRmKeyVaultName -Name $cleanValue -ErrorAction SilentlyContinue).SecretValueText)) {
+                Write-Output "$Header`nSet-AzureKeyVaultSecret`n$Header"
 
-            $AzureKeyVaultSecretParams = @{
-                Name        = $cleanValue
-                SecretValue = (ConvertTo-SecureString $($ConfigurationData.SaaSService.KeyVault.Secrets.$Secret.$Value) -AsPlainText -Force)
-                ContentType = $Secret
-                VaultName   = $AzureRmKeyVaultName
-            }
+                $AzureKeyVaultSecretParams = @{
+                    Name        = $cleanValue
+                    SecretValue = (ConvertTo-SecureString $($ConfigurationData.SaaSService.KeyVault.Secrets.$Secret.$Value) -AsPlainText -Force)
+                    ContentType = $Secret
+                    VaultName   = $AzureRmKeyVaultName
+                }
 
-            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "Set-AzureKeyVaultSecret -$($AzureKeyVaultSecretParams.Keys.ForEach({"$_ '$($AzureKeyVaultSecretParams.$_)'"}) -join ' -')" -Severity I -Category "AzureKeyVaultSecret" } Catch {} }
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "Set-AzureKeyVaultSecret -$($AzureKeyVaultSecretParams.Keys.ForEach({"$_ '$($AzureKeyVaultSecretParams.$_)'"}) -join ' -')" -Severity I -Category "AzureKeyVaultSecret" } Catch {} }
 
-            Try {
-                $AzureKeyVaultSecret = Set-AzureKeyVaultSecret @AzureKeyVaultSecretParams -ErrorAction Stop
+                Try {
+                    $AzureKeyVaultSecret = Set-AzureKeyVaultSecret @AzureKeyVaultSecretParams -ErrorAction Stop
 
-                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureKeyVaultSecret -Severity I -Category "AzureKeyVaultSecret" } Catch {} }
+                    if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureKeyVaultSecret -Severity I -Category "AzureKeyVaultSecret" } Catch {} }
 
-                Write-Output $AzureKeyVaultSecret
-            }
-            Catch {
-                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureKeyVaultSecret" } Catch {} }
+                    Write-Output $AzureKeyVaultSecret
+                }
+                Catch {
+                    if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureKeyVaultSecret" } Catch {} }
 
-                Write-Error $_
+                    Write-Error $_
+                }
             }
         }
     }
@@ -327,20 +331,20 @@ If (!$AzureRmDnsZone) { Break }
 #endregion
 
 #region Create Resource Group
-ForEach ($ResourceGroup in $ConfigurationData.ResourceGroups) {
+ForEach ($ResourceGroup in $ConfigurationData.ResourceGroups.Keys) {
 
     #Verify AzureRmResourceGroup
-    Write-Output "$Header`nAzureRmResourceGroup: $($ResourceGroup.Name)`n$Header"
+    Write-Output "$Header`nAzureRmResourceGroup: $($ResourceGroup)`n$Header"
     Write-Output ""
 
-    If (-not($AzureRmResourceGroup = Get-AzureRmResourceGroup -Name $ResourceGroup.Name -ErrorAction SilentlyContinue)) {
+    If (-not($AzureRmResourceGroup = Get-AzureRmResourceGroup -Name $ResourceGroup -ErrorAction SilentlyContinue)) {
 
         Write-Output "New-AzureRmResourceGroup`n$Header"
 
         $AzureRmResourceGroupParams = @{
-            Name     = $ResourceGroup.Name
-            Location = $ResourceGroup.Location
-            Tag      = $ResourceGroup.Tags
+            Name     = $ResourceGroup
+            Location = $ConfigurationData.ResourceGroups.$ResourceGroup.Location
+            Tag      = $ConfigurationData.ResourceGroups.$ResourceGroup.Tags
         }
 
         if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "New-AzureRmResourceGroup -$($AzureRmResourceGroupParams.Keys.ForEach({"$_ '$($AzureRmResourceGroupParams.$_)'"}) -join ' -')" -Severity I -Category "AzureRmResourceGroup" } Catch {} }
@@ -366,182 +370,184 @@ ForEach ($ResourceGroup in $ConfigurationData.ResourceGroups) {
 
     If (!$AzureRmResourceGroup) { Break }
 
-    #Verify AzureRmStorageAccount
-    $AzureRmStorageAccountName = Remove-IllegalCharactersFromString -String ($ResourceGroup.Storage.Name.Replace("[ResourceGroup]",$ResourceGroup.Name)).ToLower()
+    If ($ConfigurationData.ResourceGroups.$ResourceGroup.Storage) {
+        #Verify AzureRmStorageAccount
+        $AzureRmStorageAccountName = Remove-IllegalCharactersFromString -String ($ResourceGroup.Storage.Name.Replace("[ResourceGroup]",$ResourceGroup)).ToLower()
 
-    If ($AzureRmResourceGroup -and -not ($AzureRmStorageAccount = Get-AzureRmStorageAccount -ResourceGroupName $ResourceGroup.Name -Name $AzureRmStorageAccountName -ErrorAction SilentlyContinue))
-    {
-        Write-Output "New-AzureRmStorageAccount`n$Header"
-        Write-Output "This process may take several minutes..."
-
-        If ($ResourceGroup.Storage.GlobalConfiguration) {  
-            $AzureRmStorageAccountParams = @{
-                Name              = $AzureRmStorageAccountName
-                ResourceGroupName = $ResourceGroup.Name
-                Type              = $ConfigurationData.GlobalConfiguration.Storage.Type
-                Location          = $ResourceGroup.Location
-                Tag               = $ResourceGroup.Tags
-            }
-        }
-        Else {
-            $AzureRmStorageAccountParams = @{
-                Name              = $AzureRmStorageAccountName
-                ResourceGroupName = $ResourceGroup.Name
-                Type              = $ResourceGroup.Storage.Type
-                Location          = $ResourceGroup.Location
-                Tag               = $ResourceGroup.Tags
-            }
-        }
-
-        if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "New-AzureRmStorageAccount -$($AzureRmStorageAccountParams.Keys.ForEach({"$_ '$($AzureRmStorageAccountParams.$_)'"}) -join ' -')" -Severity I -Category "AzureRmStorageAccount" } Catch {} }
-
-        Try {
-            $AzureRmStorageAccount = New-AzureRmStorageAccount @AzureRmStorageAccountParams -ErrorAction Stop
-
-            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureRmStorageAccount -Severity I -Category "AzureRmStorageAccount" } Catch {} }
-
-            Write-Output $AzureRmStorageAccount
-        } Catch {
-            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureRmStorageAccount" } Catch {} }
-
-            Write-Error $_
-        }
-
-        If (!$AzureRmStorageAccount) { Break }
-
-        $Keys = Get-AzureRmStorageAccountKey -ResourceGroupName $ResourceGroup.Name -Name $AzureRmStorageAccountName
-        $StorageContext = New-AzureStorageContext -StorageAccountName $AzureRmStorageAccountName -StorageAccountKey $Keys[0].Value
-
-        if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $Keys -Severity I -Category "AzureRmStorageAccount" } Catch {} }
-        if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $StorageContext -Severity I -Category "AzureRmStorageAccount" } Catch {} }
-    }
-    Else
-    {
-        $Keys = Get-AzureRmStorageAccountKey -ResourceGroupName $ResourceGroup.Name -Name $AzureRmStorageAccountName
-        $StorageContext = New-AzureStorageContext -StorageAccountName $AzureRmStorageAccountName $Keys[0].Value
-
-        if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $Keys -Severity I -Category "AzureRmStorageAccount" } Catch {} }
-        if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $StorageContext -Severity I -Category "AzureRmStorageAccount" } Catch {} }
-    }
-
-    #Verify CORS rules
-    If ($StorageContext) {
-        $cRules = Get-AzureStorageCORSRule -ServiceType Blob -Context $StorageContext
-
-        $cUpdate = $False
-        If ($ResourceGroup.CorsRules.GlobalConfiguration) {
-            ForEach ($CorsRule in $ConfigurationData.GlobalConfiguration.CorsRules.Keys)
-            {
-                If (!([string]$cRules.$CorsRule -eq [string]$ConfigurationData.GlobalConfiguration.CorsRules.$CorsRule))
-                {
-                    $cUpdate = $True
-                    Break
-                }
-            }
-        }
-        Else {
-            ForEach ($CorsRule in $ResourceGroup.CorsRules.Keys)
-            {
-                If (!([string]$cRules.$CorsRule -eq [string]$ResourceGroup.CorsRules.$CorsRule))
-                {
-                    $cUpdate = $True
-                    Break
-                }
-            }
-        }
-
-        If ($cUpdate)
+        If ($AzureRmResourceGroup -and -not ($AzureRmStorageAccount = Get-AzureRmStorageAccount -ResourceGroupName $ResourceGroup -Name $AzureRmStorageAccountName -ErrorAction SilentlyContinue))
         {
-            Write-Output "Set-AzureStorageCORSRule`n$Header"
+            Write-Output "New-AzureRmStorageAccount`n$Header"
+            Write-Output "This process may take several minutes..."
 
-            If ($ResourceGroup.CorsRules.GlobalConfiguration) {
-                $AzureStorageCORSRuleParams = @{
-                    ServiceType = "Blob"
-                    Context     = $StorageContext
-                    CorsRules   = $ConfigurationData.GlobalConfiguration.CorsRules
+            If ($ResourceGroup.Storage.GlobalConfiguration) {  
+                $AzureRmStorageAccountParams = @{
+                    Name              = $AzureRmStorageAccountName
+                    ResourceGroupName = $ResourceGroup
+                    Type              = $ConfigurationData.GlobalConfiguration.Storage.Type
+                    Location          = $ResourceGroup.Location
+                    Tag               = $ResourceGroup.Tags
                 }
             }
             Else {
-                $AzureStorageCORSRuleParams = @{
-                    ServiceType = "Blob"
-                    Context     = $StorageContext
-                    CorsRules   = $ResourceGroup.CorsRules
+                $AzureRmStorageAccountParams = @{
+                    Name              = $AzureRmStorageAccountName
+                    ResourceGroupName = $ResourceGroup
+                    Type              = $ResourceGroup.Storage.Type
+                    Location          = $ResourceGroup.Location
+                    Tag               = $ResourceGroup.Tags
                 }
             }
 
-            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "Set-AzureStorageCORSRule -$($AzureStorageCORSRuleParams.Keys.ForEach({"$_ '$($AzureStorageCORSRuleParams.$_)'"}) -join ' -')" -Severity I -Category "AzureStorageCORSRule" } Catch {} }
+            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "New-AzureRmStorageAccount -$($AzureRmStorageAccountParams.Keys.ForEach({"$_ '$($AzureRmStorageAccountParams.$_)'"}) -join ' -')" -Severity I -Category "AzureRmStorageAccount" } Catch {} }
 
             Try {
-                Set-AzureStorageCORSRule @AzureStorageCORSRuleParams -ErrorAction Stop
+                $AzureRmStorageAccount = New-AzureRmStorageAccount @AzureRmStorageAccountParams -ErrorAction Stop
 
-                $GetAzureStorageCORSRule = Get-AzureStorageCORSRule -ServiceType Blob -Context $StorageContext
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureRmStorageAccount -Severity I -Category "AzureRmStorageAccount" } Catch {} }
 
-                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $GetAzureStorageCORSRule -Severity I -Category "AzureStorageCORSRule" } Catch {} }
-
-                Write-Host $GetAzureStorageCORSRule
-
-                Write-Output ""
-            }
-            Catch {
-                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureStorageCORSRule" } Catch {} }
+                Write-Output $AzureRmStorageAccount
+            } Catch {
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureRmStorageAccount" } Catch {} }
 
                 Write-Error $_
+            }
+
+            If (!$AzureRmStorageAccount) { Break }
+
+            $Keys = Get-AzureRmStorageAccountKey -ResourceGroupName $ResourceGroup -Name $AzureRmStorageAccountName
+            $StorageContext = New-AzureStorageContext -StorageAccountName $AzureRmStorageAccountName -StorageAccountKey $Keys[0].Value
+
+            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $Keys -Severity I -Category "AzureRmStorageAccount" } Catch {} }
+            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $StorageContext -Severity I -Category "AzureRmStorageAccount" } Catch {} }
+        }
+        Else
+        {
+            $Keys = Get-AzureRmStorageAccountKey -ResourceGroupName $ResourceGroup -Name $AzureRmStorageAccountName
+            $StorageContext = New-AzureStorageContext -StorageAccountName $AzureRmStorageAccountName $Keys[0].Value
+
+            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $Keys -Severity I -Category "AzureRmStorageAccount" } Catch {} }
+            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $StorageContext -Severity I -Category "AzureRmStorageAccount" } Catch {} }
+        }
+
+        #Verify CORS rules
+        If ($StorageContext) {
+            $cRules = Get-AzureStorageCORSRule -ServiceType Blob -Context $StorageContext
+
+            $cUpdate = $False
+            If ($ResourceGroup.CorsRules.GlobalConfiguration) {
+                ForEach ($CorsRule in $ConfigurationData.GlobalConfiguration.CorsRules.Keys)
+                {
+                    If (!([string]$cRules.$CorsRule -eq [string]$ConfigurationData.GlobalConfiguration.CorsRules.$CorsRule))
+                    {
+                        $cUpdate = $True
+                        Break
+                    }
+                }
+            }
+            Else {
+                ForEach ($CorsRule in $ResourceGroup.CorsRules.Keys)
+                {
+                    If (!([string]$cRules.$CorsRule -eq [string]$ResourceGroup.CorsRules.$CorsRule))
+                    {
+                        $cUpdate = $True
+                        Break
+                    }
+                }
+            }
+
+            If ($cUpdate)
+            {
+                Write-Output "Set-AzureStorageCORSRule`n$Header"
+
+                If ($ResourceGroup.CorsRules.GlobalConfiguration) {
+                    $AzureStorageCORSRuleParams = @{
+                        ServiceType = "Blob"
+                        Context     = $StorageContext
+                        CorsRules   = $ConfigurationData.GlobalConfiguration.CorsRules
+                    }
+                }
+                Else {
+                    $AzureStorageCORSRuleParams = @{
+                        ServiceType = "Blob"
+                        Context     = $StorageContext
+                        CorsRules   = $ResourceGroup.CorsRules
+                    }
+                }
+
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "Set-AzureStorageCORSRule -$($AzureStorageCORSRuleParams.Keys.ForEach({"$_ '$($AzureStorageCORSRuleParams.$_)'"}) -join ' -')" -Severity I -Category "AzureStorageCORSRule" } Catch {} }
+
+                Try {
+                    Set-AzureStorageCORSRule @AzureStorageCORSRuleParams -ErrorAction Stop
+
+                    $GetAzureStorageCORSRule = Get-AzureStorageCORSRule -ServiceType Blob -Context $StorageContext
+
+                    if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $GetAzureStorageCORSRule -Severity I -Category "AzureStorageCORSRule" } Catch {} }
+
+                    Write-Host $GetAzureStorageCORSRule
+
+                    Write-Output ""
+                }
+                Catch {
+                    if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureStorageCORSRule" } Catch {} }
+
+                    Write-Error $_
+                }
             }
         }
-    }
 
-    #Verify AzureStorageContainer
-    $AzureStorageContainerHeader = $True
+        #Verify AzureStorageContainer
+        $AzureStorageContainerHeader = $True
 
-    $Containers = $null
-    If ($ResourceGroup.Storage.GlobalConfiguration) {
-        $Containers = $ConfigurationData.GlobalConfiguration.Storage.Containers
-    }
-    Else {
-        $Containers = $ResourceGroup.Storage.Containers
-    }
-
-    ForEach ($Container in $Containers) {
-        If ($AzureRmResourceGroup -and $AzureRmStorageAccount -and -not($AzureStorageContainer = Get-AzureStorageContainer -Name $Container -Context $StorageContext -ErrorAction SilentlyContinue))
-        {
-            Write-Output "New-AzureStorageContainer`n$Header"
-
-            $AzureStorageContainerParams = @{
-                Name       = $Container
-                Permission = "Off"
-                Context    = $StorageContext
-            }
-
-            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "New-AzureStorageContainer -$($AzureStorageContainerParams.Keys.ForEach({"$_ '$($AzureStorageContainerParams.$_)'"}) -join ' -')" -Severity I -Category "AzureStorageContainer" } Catch {} }
-
-            Try {
-                $AzureStorageContainer = New-AzureStorageContainer @AzureStorageContainerParams -ErrorAction Stop
-
-                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureStorageContainer -Severity I -Category "AzureStorageContainer" } Catch {} }
-
-                Write-Output $AzureStorageContainer
-            }
-            Catch {
-                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureStorageContainer" } Catch {} }
-
-                Write-Error $_
-            }
+        $Containers = $null
+        If ($ResourceGroup.Storage.GlobalConfiguration) {
+            $Containers = $ConfigurationData.GlobalConfiguration.Storage.Containers
         }
         Else {
-            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureStorageContainer -Severity I -Category "AzureStorageContainer" } Catch {} }
+            $Containers = $ResourceGroup.Storage.Containers
+        }
+
+        ForEach ($Container in $Containers) {
+            If ($AzureRmResourceGroup -and $AzureRmStorageAccount -and -not($AzureStorageContainer = Get-AzureStorageContainer -Name $Container -Context $StorageContext -ErrorAction SilentlyContinue))
+            {
+                Write-Output "New-AzureStorageContainer`n$Header"
+
+                $AzureStorageContainerParams = @{
+                    Name       = $Container
+                    Permission = "Off"
+                    Context    = $StorageContext
+                }
+
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "New-AzureStorageContainer -$($AzureStorageContainerParams.Keys.ForEach({"$_ '$($AzureStorageContainerParams.$_)'"}) -join ' -')" -Severity I -Category "AzureStorageContainer" } Catch {} }
+
+                Try {
+                    $AzureStorageContainer = New-AzureStorageContainer @AzureStorageContainerParams -ErrorAction Stop
+
+                    if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureStorageContainer -Severity I -Category "AzureStorageContainer" } Catch {} }
+
+                    Write-Output $AzureStorageContainer
+                }
+                Catch {
+                    if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureStorageContainer" } Catch {} }
+
+                    Write-Error $_
+                }
+            }
+            Else {
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureStorageContainer -Severity I -Category "AzureStorageContainer" } Catch {} }
+            }
         }
     }
 
     #Verify AzureRmAutomationAccount
     If ($ResourceGroup.AzureRmAutomationAccount.Name) {
 
-        $AzureRmAutomationAccountName = $ResourceGroup.AzureRmAutomationAccount.Name.Replace("[ResourceGroup]",$ResourceGroup.Name)
+        $AzureRmAutomationAccountName = $ResourceGroup.AzureRmAutomationAccount.Name.Replace("[ResourceGroup]",$ResourceGroup)
 
-        If ($AzureRmResourceGroup -and -not($AzureRmAutomationAccount = Get-AzureRmAutomationAccount -ResourceGroupName $ResourceGroup.Name -Name $AzureRmAutomationAccountName -ErrorAction SilentlyContinue)) {
+        If ($AzureRmResourceGroup -and -not($AzureRmAutomationAccount = Get-AzureRmAutomationAccount -ResourceGroupName $ResourceGroup -Name $AzureRmAutomationAccountName -ErrorAction SilentlyContinue)) {
             Write-Output "New-AzureRmAutomationAccount`n$Header"
 
             $AzureRmAutomationAccountParams = @{
-                ResourceGroupName = $ResourceGroup.Name
+                ResourceGroupName = $ResourceGroup
                 Location          = $ResourceGroup.Location
                 Name              = $AzureRmAutomationAccountName
                 Tags              = $ResourceGroup.Tags
@@ -569,9 +575,9 @@ ForEach ($ResourceGroup in $ConfigurationData.ResourceGroups) {
         #Verify AzureRmAutomationCredential
         ForEach ($AutomationCredential in $ResourceGroup.AzureRmAutomationAccount.AzureRmAutomationCredential) {
 
-            $AutomationCredentialName = $AutomationCredential.Name.Replace("[ResourceGroup]",$ResourceGroup.Name)
+            $AutomationCredentialName = $AutomationCredential.Name.Replace("[ResourceGroup]",$ResourceGroup)
 
-            If (-not ($AzureRmAutomationCredential = Get-AzureRmAutomationCredential -AutomationAccountName $AzureRmAutomationAccountName -Name $AutomationCredentialName -ResourceGroupName $ResourceGroup.Name -ErrorAction SilentlyContinue))
+            If (-not ($AzureRmAutomationCredential = Get-AzureRmAutomationCredential -AutomationAccountName $AzureRmAutomationAccountName -Name $AutomationCredentialName -ResourceGroupName $ResourceGroup -ErrorAction SilentlyContinue))
             {
                 Write-Output "New-AzureRmAutomationCredential`n$Header"
 
@@ -582,7 +588,7 @@ ForEach ($ResourceGroup in $ConfigurationData.ResourceGroups) {
                     AutomationAccountName = $AzureRmAutomationAccountName
                     Name                  = $AutomationCredentialName
                     Description           = $AutomationCredential.Description
-                    ResourceGroupName     = $ResourceGroup.Name
+                    ResourceGroupName     = $ResourceGroup
                     Value                 = $AzureRmAutomationCredential
                 }
 
@@ -605,7 +611,7 @@ ForEach ($ResourceGroup in $ConfigurationData.ResourceGroups) {
 
         #Verify AzureRmAutomationVariable
         ForEach ($AutomationVariable in $ResourceGroup.AzureRmAutomationAccount.AzureRmAutomationVariable) {
-            If (-not (Get-AzureRmAutomationVariable -AutomationAccountName $AzureRmAutomationAccountName -Name $AutomationVariable.Name -ResourceGroupName $ResourceGroup.Name -ErrorAction SilentlyContinue))
+            If (-not (Get-AzureRmAutomationVariable -AutomationAccountName $AzureRmAutomationAccountName -Name $AutomationVariable.Name -ResourceGroupName $ResourceGroup -ErrorAction SilentlyContinue))
             {
                 Write-Output "New-AzureRmAutomationVariable`n$Header"
 
@@ -614,7 +620,7 @@ ForEach ($ResourceGroup in $ConfigurationData.ResourceGroups) {
                     Name                  = $AutomationVariable.Name
                     Value                 = $AutomationVariable.Value
                     Encrypted             = $AutomationVariable.Encrypted
-                    ResourceGroupName     = $ResourceGroup.Name
+                    ResourceGroupName     = $ResourceGroup
                 }
 
                 if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "New-AzureRmAutomationVariable -$($AzureRmAutomationVariableRedistPathParams.Keys.ForEach({"$_ '$($AzureRmAutomationVariableRedistPathParams.$_)'"}) -join ' -')" -Severity I -Category "AzureRmAutomationVariable" } Catch {} }
@@ -636,110 +642,319 @@ ForEach ($ResourceGroup in $ConfigurationData.ResourceGroups) {
     }
 
     #Verify Relay Namespace
-    If (!($AzureRmRelayNamespace = Get-AzureRmRelayNamespace -ResourceGroupName $ResourceGroup.Name -Name $ResourceGroup.HybridConnection.Namespace -ErrorAction SilentlyContinue)) {
-        if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "New-AzureRmRelayNamespace -ResourceGroupName $($ResourceGroup.Name) -Name $($ResourceGroup.HybridConnection.Namespace) -Location $($ResourceGroup.Location)" -Severity I -Category "AzureRmRelayNamespace" } Catch {} }
-        Try {
-            $AzureRmRelayNamespace = New-AzureRmRelayNamespace -ResourceGroupName $ResourceGroup.Name -Name $ResourceGroup.HybridConnection.Namespace -Location $ResourceGroup.Location -ErrorAction Stop
+    If ($ConfigurationData.ResourceGroups.$ResourceGroup.HybridConnection.Enabled) {
+        If (!($AzureRmRelayNamespace = Get-AzureRmRelayNamespace -ResourceGroupName $ResourceGroup -Name $ConfigurationData.ResourceGroups.$ResourceGroup.HybridConnection.Namespace -ErrorAction SilentlyContinue)) {
+            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "New-AzureRmRelayNamespace -ResourceGroupName $($ResourceGroup) -Name $($ConfigurationData.ResourceGroups.$ResourceGroup.HybridConnection.Namespace) -Location $($ConfigurationData.ResourceGroups.$ResourceGroup.Location)" -Severity I -Category "AzureRmRelayNamespace" } Catch {} }
+            Try {
+                $AzureRmRelayNamespace = New-AzureRmRelayNamespace -ResourceGroupName $ResourceGroup -Name $ConfigurationData.ResourceGroups.$ResourceGroup.HybridConnection.Namespace -Location $ConfigurationData.ResourceGroups.$ResourceGroup.Location -ErrorAction Stop
 
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureRmRelayNamespace -Severity I -Category "AzureRmRelayNamespace" } Catch {} }
+
+                Write-Output $AzureRmRelayNamespace
+            }
+            Catch {
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureRmRelayNamespace" } Catch {} }
+
+                Write-Error $_
+            }
+        } Else {
             if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureRmRelayNamespace -Severity I -Category "AzureRmRelayNamespace" } Catch {} }
-
-            Write-Output $AzureRmRelayNamespace
         }
-        Catch {
-            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureRmRelayNamespace" } Catch {} }
 
-            Write-Error $_
-        }
-    } Else {
-        if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureRmRelayNamespace -Severity I -Category "AzureRmRelayNamespace" } Catch {} }
-    }
+        #Verify Hybrid Connection
+        If (!($AzureRmRelayHybridConnection = Get-AzureRmRelayHybridConnection -ResourceGroupName $ResourceGroup -Name $ConfigurationData.ResourceGroups.$ResourceGroup.HybridConnection.Name -Namespace $ConfigurationData.ResourceGroups.$ResourceGroup.HybridConnection.Namespace -ErrorAction SilentlyContinue)) {
+            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "New-AzureRmRelayHybridConnection -ResourceGroupName $($ResourceGroup) -Namespace $($ConfigurationData.ResourceGroups.$ResourceGroup.HybridConnection.Namespace) -Name $($ConfigurationData.ResourceGroups.$ResourceGroup.HybridConnection.Names) -RequiresClientAuthorization $True" -Severity I -Category "AzureRmRelayHybridConnection" } Catch {} }
+            Try {
+                $AzureRmRelayHybridConnection = New-AzureRmRelayHybridConnection -ResourceGroupName $ResourceGroup -Namespace $ConfigurationData.ResourceGroups.$ResourceGroup.HybridConnection.Namespace -Name $ConfigurationData.ResourceGroups.$ResourceGroup.HybridConnection.Name -RequiresClientAuthorization $True
 
-    #Verify Hybrid Connection
-    If (!($AzureRmRelayHybridConnection = Get-AzureRmRelayHybridConnection -ResourceGroupName $ResourceGroup.Name -Name $ResourceGroup.HybridConnection.Name -Namespace $ResourceGroup.HybridConnection.Namespace -ErrorAction SilentlyContinue)) {
-        if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "New-AzureRmRelayHybridConnection -ResourceGroupName $($ResourceGroup.Name) -Namespace $($ResourceGroup.HybridConnection.Namespace) -Name $($ResourceGroup.HybridConnection.Names) -RequiresClientAuthorization $True" -Severity I -Category "AzureRmRelayHybridConnection" } Catch {} }
-        Try {
-            $AzureRmRelayHybridConnection = New-AzureRmRelayHybridConnection -ResourceGroupName $ResourceGroup.Name -Namespace $ResourceGroup.HybridConnection.Namespace -Name $ResourceGroup.HybridConnection.Name -RequiresClientAuthorization $True
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureRmRelayHybridConnection -Severity I -Category "AzureRmRelayHybridConnection" } Catch {} }
 
+                Write-Output $AzureRmRelayNamespace
+            }
+            Catch {
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureRmRelayHybridConnection" } Catch {} }
+
+                Write-Error $_
+            }
+        } Else {
             if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureRmRelayHybridConnection -Severity I -Category "AzureRmRelayHybridConnection" } Catch {} }
-
-            Write-Output $AzureRmRelayNamespace
         }
-        Catch {
-            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureRmRelayHybridConnection" } Catch {} }
-
-            Write-Error $_
-        }
-    } Else {
-        if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureRmRelayHybridConnection -Severity I -Category "AzureRmRelayHybridConnection" } Catch {} }
     }
 
     #Verify App Service Plan
-    $AzureRmAppServicePlanName = $ResourceGroup.AppServicePlan.Name.Replace("[ResourceGroup]",$ResourceGroup.Name)
+    ForEach ($AzureRmAppServicePlan in $ConfigurationData.ResourceGroups.$ResourceGroup.AppServicePlan.Keys) {
+        $AzureRmAppServicePlanName = $AzureRmAppServicePlan.Replace("[ResourceGroup]",$ResourceGroup)
 
-    $AzureRmAppServicePlanName = Remove-IllegalCharactersFromString -String $AzureRmAppServicePlanName.ToLower()
-    If ($AzureRmAppServicePlanName.Length -lt $configurationData.GlobalConfiguration.ShortNameCharacters) {
-        $AzureRmAppServicePlanName = "$AzureRmAppServicePlanName$(Get-TruncatedStringHash -String $AzureRmAppServicePlanName -Length ($configurationData.GlobalConfiguration.ShortNameCharacters - $AzureRmAppServicePlanName.Length))"
-    } else {
-        $AzureRmAppServicePlanName = $AzureRmAppServicePlanName.SubString(0,$configurationData.GlobalConfiguration.ShortNameCharacters)
+        $AzureRmAppServicePlanName = Remove-IllegalCharactersFromString -String $AzureRmAppServicePlanName.ToLower()
+        If ($AzureRmAppServicePlanName.Length -lt $configurationData.GlobalConfiguration.ShortNameCharacters) {
+            $AzureRmAppServicePlanName = "$AzureRmAppServicePlanName$(Get-TruncatedStringHash -String $AzureRmAppServicePlanName -Length ($configurationData.GlobalConfiguration.ShortNameCharacters - $AzureRmAppServicePlanName.Length))"
+        } else {
+            $AzureRmAppServicePlanName = $AzureRmAppServicePlanName.SubString(0,$configurationData.GlobalConfiguration.ShortNameCharacters)
+        }
+
+        If (-not($GetAzureRmAppServicePlan = Get-AzureRmAppServicePlan -Name $AzureRmAppServicePlanName -ResourceGroupName $ResourceGroup -ErrorAction SilentlyContinue)) {
+        
+            Write-Output "New-AzureRmAppServicePlan`n$Header"
+
+            $AzureRmAppServicePlanParams = @{
+                Name              = $AzureRmAppServicePlanName
+                Location          = $ConfigurationData.ResourceGroups.$ResourceGroup.Location
+                ResourceGroupName = $ResourceGroup
+                Tier              = $ConfigurationData.ResourceGroups.$ResourceGroup.AppServicePlan.$AzureRmAppServicePlan.Tier
+            }
+
+            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "New-AzureRmAppServicePlan -$($AzureRmAppServicePlanParams.Keys.ForEach({"$_ '$($AzureRmAppServicePlanParams.$_)'"}) -join ' -')" -Severity I -Category "AzureRmAppServicePlan" } Catch {} }
+
+            Try {
+                $AzureRmAppServicePlan = New-AzureRmAppServicePlan @AzureRmAppServicePlanParams -ErrorAction Stop
+
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureRmAppServicePlan -Severity I -Category "AzureRmAppServicePlan" } Catch {} }
+
+                Write-Output $AzureRmAppServicePlan
+            }
+            Catch {
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureRmAppServicePlan" } Catch {} }
+
+                Write-Error $_
+            }
+        }
+        Else {
+            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureRmAppServicePlan -Severity I -Category "AzureRmAppServicePlan" } Catch {} }
+        }
+        If (!$AzureRmAppServicePlan) { Break }
     }
 
-    If (-not($AzureRmAppServicePlan = Get-AzureRmAppServicePlan -Name $AzureRmAppServicePlanName -ResourceGroupName $ResourceGroup.Name -ErrorAction SilentlyContinue)) {
-        
-        Write-Output "New-AzureRmAppServicePlan`n$Header"
+    $AzureRmKeyVaultName = $ResourceGroup
 
-        $AzureRmAppServicePlanParams = @{
-            Name              = $AzureRmAppServicePlanName
-            Location          = $ResourceGroup.Location
-            ResourceGroupName = $ResourceGroup.Name
-            Tier              = $ResourceGroup.AppServicePlan.Tier
+    If ((Get-AzureRmResourceGroup -Name $ConfigurationData.SaaSService.ResourceGroup -ErrorAction SilentlyContinue) -and -not($AzureRmKeyVault = Get-AzureRMKeyVault -VaultName $AzureRmKeyVaultName -ErrorAction SilentlyContinue)) {
+        Write-Output "New-AzureRmKeyVault`n$Header"
+
+        $AzureRmKeyVaultParams = @{
+            VaultName         = $AzureRmKeyVaultName
+            ResourceGroupName = $ConfigurationData.SaaSService.ResourceGroup
+            Location          = $ConfigurationData.ResourceGroups.$ResourceGroup.Location
+            Sku               = $ConfigurationData.ResourceGroups.$ResourceGroup.KeyVault.SKU
+            Tags              = $ConfigurationData.ResourceGroups.$ResourceGroup.Tags
         }
 
-        if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "New-AzureRmAppServicePlan -$($AzureRmAppServicePlanParams.Keys.ForEach({"$_ '$($AzureRmAppServicePlanParams.$_)'"}) -join ' -')" -Severity I -Category "AzureRmAppServicePlan" } Catch {} }
+        if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "New-AzureRmKeyVault -$($AzureRmKeyVaultParams.Keys.ForEach({"$_ '$($AzureRmKeyVaultParams.$_)'"}) -join ' -')" -Severity I -Category "AzureRmKeyVault" } Catch {} }
 
         Try {
-            $AzureRmAppServicePlan = New-AzureRmAppServicePlan @AzureRmAppServicePlanParams -ErrorAction Stop
+            $AzureRmKeyVault = New-AzureRmKeyVault @AzureRmKeyVaultParams -ErrorAction Stop
 
-            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureRmAppServicePlan -Severity I -Category "AzureRmAppServicePlan" } Catch {} }
+            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureRmKeyVault -Severity I -Category "AzureRmKeyVault" } Catch {} }
 
-            Write-Output $AzureRmAppServicePlan
+            Write-Output $AzureRmKeyVault
         }
         Catch {
-            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureRmAppServicePlan" } Catch {} }
+            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureRmKeyVault" } Catch {} }
 
             Write-Error $_
         }
     }
     Else {
-        if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureRmAppServicePlan -Severity I -Category "AzureRmAppServicePlan" } Catch {} }
+        if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureRmKeyVault -Severity I -Category "AzureRmKeyVault" } Catch {} }
     }
-    If (!$AzureRmAppServicePlan) { Break }
+    If (!$AzureRmKeyVault) { Break }
+}
+#endregion
 
-    #Verify Web App
-    ForEach ($AzureRmWebAppKeys in $ResourceGroup.WebApp.Keys) {
-        $AzureRmWebAppName = $AzureRmWebAppKeys.Replace("[ResourceGroup]",$ResourceGroup.Name)
+#region Create Customer
+ForEach ($Customer in $ConfigurationData.Customers.Keys) {
 
-        $AzureRmWebAppName = Remove-IllegalCharactersFromString -String $AzureRmWebAppName.ToLower()
-        If ($AzureRmWebAppName.Length -lt $configurationData.GlobalConfiguration.ShortNameCharacters) {
-            $AzureRmWebAppName = "$AzureRmWebAppName$(Get-TruncatedStringHash -String $AzureRmWebAppName -Length ($configurationData.GlobalConfiguration.ShortNameCharacters - $AzureRmWebAppName.Length))"
+    #Verify AzureRmResourceGroup
+    Write-Output "$Header`nCustomer: $($Customer)`n$Header"
+    Write-Output "" 
+
+    If ($AzureRmResourceGroup = Get-AzureRmResourceGroup -Name $ConfigurationData.Customers.$Customer.ResourceGroup -ErrorAction SilentlyContinue) {
+
+        $CustomerName = (Remove-IllegalCharactersFromString -String $Customer).ToLower()
+
+        $DnsRecordSetName = $CustomerName
+        If ($DnsRecordSetName.Length -lt $configurationData.GlobalConfiguration.ShortNameCharacters) {
+            $DnsRecordSetName = "$DnsRecordSetName$(Get-TruncatedStringHash -String $DnsRecordSetName -Length ($configurationData.GlobalConfiguration.ShortNameCharacters - $DnsRecordSetName.Length))"
         } else {
-            $AzureRmWebAppName = $AzureRmWebAppName.SubString(0,$configurationData.GlobalConfiguration.ShortNameCharacters)
+            $DnsRecordSetName = $DnsRecordSetName.SubString(0,$configurationData.GlobalConfiguration.ShortNameCharacters)
+        }
+        $CustomerName = $DnsRecordSetName
+
+        #Verify AzureRmStorageAccount
+        If (-not ($AzureRmStorageAccount = Get-AzureRmStorageAccount -ResourceGroupName $ConfigurationData.Customers.$Customer.ResourceGroup -Name $CustomerName -ErrorAction SilentlyContinue))
+        {
+            Write-Output "New-AzureRmStorageAccount`n$Header"
+            Write-Output "This process may take several minutes..."
+
+            If ($ConfigurationData.Customers.$Customer.Storage.GlobalConfiguration) {  
+                $AzureRmStorageAccountParams = @{
+                    Name              = $CustomerName
+                    ResourceGroupName = $ConfigurationData.Customers.$Customer.ResourceGroup
+                    Type              = $ConfigurationData.GlobalConfiguration.Storage.Type
+                    Location          = $ConfigurationData.Customers.$Customer.Location
+                    Tag               = $ConfigurationData.Customers.$Customer.Tags
+                }
+            }
+            Else {
+                $AzureRmStorageAccountParams = @{
+                    Name              = $CustomerName
+                    ResourceGroupName = $ConfigurationData.Customers.$Customer.ResourceGroup
+                    Type              = $ConfigurationData.Customers.$Customer.Storage.Type
+                    Location          = $ConfigurationData.Customers.$Customer.Location
+                    Tag               = $ConfigurationData.Customers.$Customer.Tags
+                }
+            }
+
+            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "New-AzureRmStorageAccount -$($AzureRmStorageAccountParams.Keys.ForEach({"$_ '$($AzureRmStorageAccountParams.$_)'"}) -join ' -')" -Severity I -Category "AzureRmStorageAccount" } Catch {} }
+
+            Try {
+                $AzureRmStorageAccount = New-AzureRmStorageAccount @AzureRmStorageAccountParams -ErrorAction Stop
+
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureRmStorageAccount -Severity I -Category "AzureRmStorageAccount" } Catch {} }
+
+                Write-Output $AzureRmStorageAccount
+            } Catch {
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureRmStorageAccount" } Catch {} }
+
+                Write-Error $_
+            }
+
+            If (!$AzureRmStorageAccount) { Break }
+
+            $Keys = Get-AzureRmStorageAccountKey -ResourceGroupName $ConfigurationData.Customers.$Customer.ResourceGroup -Name $CustomerName
+            $StorageContext = New-AzureStorageContext -StorageAccountName $CustomerName -StorageAccountKey $Keys[0].Value
+
+            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $Keys -Severity I -Category "AzureRmStorageAccount" } Catch {} }
+            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $StorageContext -Severity I -Category "AzureRmStorageAccount" } Catch {} }
+        }
+        Else
+        {
+            $Keys = Get-AzureRmStorageAccountKey -ResourceGroupName $ConfigurationData.Customers.$Customer.ResourceGroup -Name $CustomerName
+            $StorageContext = New-AzureStorageContext -StorageAccountName $CustomerName $Keys[0].Value
+
+            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $Keys -Severity I -Category "AzureRmStorageAccount" } Catch {} }
+            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $StorageContext -Severity I -Category "AzureRmStorageAccount" } Catch {} }
+        }
+
+        #Verify CORS rules
+        If ($StorageContext) {
+            $cRules = Get-AzureStorageCORSRule -ServiceType Blob -Context $StorageContext
+
+            $cUpdate = $False
+            If ($ConfigurationData.Customers.$Customer.CorsRules.GlobalConfiguration) {
+                ForEach ($CorsRule in $ConfigurationData.GlobalConfiguration.CorsRules.Keys)
+                {
+                    If (!([string]$cRules.$CorsRule -eq [string]$ConfigurationData.GlobalConfiguration.CorsRules.$CorsRule))
+                    {
+                        $cUpdate = $True
+                        Break
+                    }
+                }
+            }
+            Else {
+                ForEach ($CorsRule in $ConfigurationData.Customers.$Customer.CorsRules.Keys)
+                {
+                    If (!([string]$cRules.$CorsRule -eq [string]$ConfigurationData.Customers.$Customer.CorsRules.$CorsRule))
+                    {
+                        $cUpdate = $True
+                        Break
+                    }
+                }
+            }
+
+            If ($cUpdate)
+            {
+                Write-Output "Set-AzureStorageCORSRule`n$Header"
+
+                If ($ConfigurationData.Customers.$Customer.CorsRules.GlobalConfiguration) {
+                    $AzureStorageCORSRuleParams = @{
+                        ServiceType = "Blob"
+                        Context     = $StorageContext
+                        CorsRules   = $ConfigurationData.GlobalConfiguration.CorsRules
+                    }
+                }
+                Else {
+                    $AzureStorageCORSRuleParams = @{
+                        ServiceType = "Blob"
+                        Context     = $StorageContext
+                        CorsRules   = $ConfigurationData.Customers.$Customer.CorsRules
+                    }
+                }
+
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "Set-AzureStorageCORSRule -$($AzureStorageCORSRuleParams.Keys.ForEach({"$_ '$($AzureStorageCORSRuleParams.$_)'"}) -join ' -')" -Severity I -Category "AzureStorageCORSRule" } Catch {} }
+
+                Try {
+                    Set-AzureStorageCORSRule @AzureStorageCORSRuleParams -ErrorAction Stop
+
+                    $GetAzureStorageCORSRule = Get-AzureStorageCORSRule -ServiceType Blob -Context $StorageContext
+
+                    if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $GetAzureStorageCORSRule -Severity I -Category "AzureStorageCORSRule" } Catch {} }
+
+                    Write-Host $GetAzureStorageCORSRule
+
+                    Write-Output ""
+                }
+                Catch {
+                    if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureStorageCORSRule" } Catch {} }
+
+                    Write-Error $_
+                }
+            }
+        }
+
+        #Verify AzureStorageContainer
+        $AzureStorageContainerHeader = $True
+
+        $Containers = $null
+        If ($ConfigurationData.Customers.$Customer.Storage.GlobalConfiguration) {
+            $Containers = $ConfigurationData.GlobalConfiguration.Storage.Containers
+        }
+        Else {
+            $Containers = $ConfigurationData.Customers.$Customer.Storage.Containers
+        }
+
+        ForEach ($Container in $Containers) {
+            If ($AzureRmStorageAccount -and -not($AzureStorageContainer = Get-AzureStorageContainer -Name $Container -Context $StorageContext -ErrorAction SilentlyContinue))
+            {
+                Write-Output "New-AzureStorageContainer`n$Header"
+
+                $AzureStorageContainerParams = @{
+                    Name       = $Container
+                    Permission = "Off"
+                    Context    = $StorageContext
+                }
+
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "New-AzureStorageContainer -$($AzureStorageContainerParams.Keys.ForEach({"$_ '$($AzureStorageContainerParams.$_)'"}) -join ' -')" -Severity I -Category "AzureStorageContainer" } Catch {} }
+
+                Try {
+                    $AzureStorageContainer = New-AzureStorageContainer @AzureStorageContainerParams -ErrorAction Stop
+
+                    if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureStorageContainer -Severity I -Category "AzureStorageContainer" } Catch {} }
+
+                    Write-Output $AzureStorageContainer
+                }
+                Catch {
+                    if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureStorageContainer" } Catch {} }
+
+                    Write-Error $_
+                }
+            }
+            Else {
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureStorageContainer -Severity I -Category "AzureStorageContainer" } Catch {} }
+            }
         }
 
         #Verify AzureRmDnsRecordSet
-        $DnsRecordSetName = $AzureRmWebAppName
-
-        If ($ResourceGroup.DnsRecordSet.GlobalConfiguration) {
+        If ($ConfigurationData.Customers.$Customer.DnsRecordSet.GlobalConfiguration) {
             $RecordType = $ConfigurationData.GlobalConfiguration.DnsRecordSet.RecordType
             $Ttl        = $ConfigurationData.GlobalConfiguration.DnsRecordSet.Ttl
             $DnsRecords = $ConfigurationData.GlobalConfiguration.DnsRecordSet.DnsRecords
         }
         Else {
-            $RecordType = $ResourceGroup.DnsRecordSet.RecordType
-            $Ttl        = $ResourceGroup.DnsRecordSet.Ttl
-            $DnsRecords = $ResourceGroup.DnsRecordSet.DnsRecords
+            $RecordType = $ConfigurationData.Customers.$Customer.DnsRecordSet.RecordType
+            $Ttl        = $ConfigurationData.Customers.$Customer.DnsRecordSet.Ttl
+            $DnsRecords = $ConfigurationData.Customers.$Customer.DnsRecordSet.DnsRecords
         }
 
-        If (-not($AzureRmDnsRecordSet = Get-AzureRmDnsRecordSet -Name $DnsRecordSetName -RecordType $RecordType -ZoneName $AzureRmDnsZoneName -ResourceGroupName $ConfigurationData.SaaSService.ResourceGroup -ErrorAction SilentlyContinue)) {
+        If (-not($AzureRmDnsRecordSet = Get-AzureRmDnsRecordSet -Name (Remove-IllegalCharactersFromString -String $Customer).ToLower() -RecordType $RecordType -ZoneName $AzureRmDnsZoneName -ResourceGroupName $ConfigurationData.SaaSService.ResourceGroup -ErrorAction SilentlyContinue)) {
             Write-Output "New-AzureRmDnsRecordSet`n$Header"
 
             $AzureRmDnsRecordSetParams = $null
@@ -753,7 +968,7 @@ ForEach ($ResourceGroup in $ConfigurationData.ResourceGroups) {
             }
 
             $AzureRmDnsRecordSetParams = @{
-                Name                   = $DnsRecordSetName
+                Name                   = (Remove-IllegalCharactersFromString -String $Customer).ToLower()
                 RecordType             = $RecordType
                 ZoneName               = $AzureRmDnsZoneName
                 ResourceGroupName      = $ConfigurationData.SaaSService.ResourceGroup
@@ -776,63 +991,187 @@ ForEach ($ResourceGroup in $ConfigurationData.ResourceGroups) {
                 Write-Error $_
             }
         }
-        If (!$AzureRmDnsRecordSet) { Break }
 
-        $NewAzureRmWebApp = $False
+        If (($AzureRmKeyVault = Get-AzureRMKeyVault -VaultName $ConfigurationData.Customers.$Customer.ResourceGroup -ErrorAction SilentlyContinue) -and -not($AzureKeyVaultSecret = (Get-AzureKeyVaultSecret -VaultName $ConfigurationData.Customers.$Customer.ResourceGroup -Name (Remove-IllegalCharactersFromString -String $Customer).ToLower() -ErrorAction SilentlyContinue).SecretValueText)) {
+            Write-Output "$Header`nSet-AzureKeyVaultSecret`n$Header"
 
-        If (-not($AzureRmWebApp = Get-AzureRmWebApp -Name $AzureRmWebAppName -ResourceGroupName $ResourceGroup.Name -ErrorAction SilentlyContinue)) {
-            Write-Output "New-AzureRmWebApp`n$Header"
-
-            $NewAzureRmWebApp = $True
-
-            $AzureRmWebAppParams = @{
-                Name              = $AzureRmWebAppName
-                Location          = $ResourceGroup.Location
-                ResourceGroupName = $ResourceGroup.Name
-                AppServicePlan    = $AzureRmAppServicePlanName
+            #Define Secret properties
+            $Secret = @{}
+            If ($ConfigurationData.Customers.$Customer.KeyVaultSecret.GlobalConfiguration) {
+                ForEach ($variable in $ConfigurationData.GlobalConfiguration.KeyVault.Secrets.AppSettings.Keys) {
+                    $value = $ConfigurationData.GlobalConfiguration.KeyVault.Secrets.AppSettings.$variable
+                    New-Variable -Name $variable -Value "`$ConfigurationData.$value" -Force
+                    $value = $value.Replace("[ResourceGroup]",$ConfigurationData.Customers.$Customer.ResourceGroup)
+                    $value = $value.Replace("[Key]",$Keys[0].Value)
+                    $Secret.add($variable,$value)
+                }
+            } Else {
+                ForEach ($variable in $ConfigurationData.Customers.$Customer.KeyVaultSecret.Keys) {
+                    $value = $ConfigurationData.Customers.$Customer.KeyVaultSecret.$variable
+                    New-Variable -Name $variable -Value "`$ConfigurationData.$value" -Force
+                    $value = $value.Replace("[ResourceGroup]",$ConfigurationData.Customers.$Customer.ResourceGroup)
+                    $value = $value.Replace("[Key]",$Keys[0].Value)
+                    $Secret.add($variable,$value)
+                }
             }
 
-            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "New-AzureRmWebApp -$($AzureRmWebAppParams.Keys.ForEach({"$_ '$($AzureRmWebAppParams.$_)'"}) -join ' -')" -Severity I -Category "AzureRmWebApp" } Catch {} }
+            $AzureKeyVaultSecretParams = @{
+                Name        = (Remove-IllegalCharactersFromString -String $Customer).ToLower()
+                SecretValue = (ConvertTo-SecureString $(ConvertTo-Json $Secret) -AsPlainText -Force)
+                ContentType = "AppSettings"
+                VaultName   = $ConfigurationData.Customers.$Customer.ResourceGroup
+            }
+
+            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "Set-AzureKeyVaultSecret -$($AzureKeyVaultSecretParams.Keys.ForEach({"$_ '$($AzureKeyVaultSecretParams.$_)'"}) -join ' -')" -Severity I -Category "AzureKeyVaultSecret" } Catch {} }
 
             Try {
-                $AzureRmWebApp = New-AzureRmWebApp @AzureRmWebAppParams -ErrorAction Stop
+                $AzureKeyVaultSecret = Set-AzureKeyVaultSecret @AzureKeyVaultSecretParams -ErrorAction Stop
 
-                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureRmWebApp -Severity I -Category "AzureRmWebApp" } Catch {} }
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureKeyVaultSecret -Severity I -Category "AzureKeyVaultSecret" } Catch {} }
 
-                Write-Output $AzureRmWebApp
-
-                Start-Sleep 30
+                Write-Output $AzureKeyVaultSecret
             }
             Catch {
-                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureRmWebApp" } Catch {} }
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureKeyVaultSecret" } Catch {} }
 
                 Write-Error $_
             }
         }
-        Else {
-            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureRmWebApp -Severity I -Category "AzureRmWebApp" } Catch {} }
-        }
+        ElseIf ($AzureKeyVaultSecret) {
 
-        If (!$AzureRmWebApp) { Break }
+            #Define Secret properties from configuration file
+            $Secret = @{}
+            If ($ConfigurationData.Customers.$Customer.KeyVaultSecret.GlobalConfiguration) {
+                ForEach ($variable in $ConfigurationData.GlobalConfiguration.KeyVault.Secrets.AppSettings.Keys) {
+                    $value = $ConfigurationData.GlobalConfiguration.KeyVault.Secrets.AppSettings.$variable
+                    New-Variable -Name $variable -Value "`$ConfigurationData.$value" -Force
+                    $value = $value.Replace("[ResourceGroup]",$ConfigurationData.Customers.$Customer.ResourceGroup)
+                    $value = $value.Replace("[Key]",$Keys[0].Value)
+                    $Secret.add($variable,$value)
+                }
+            } Else {
+                ForEach ($variable in $ConfigurationData.Customers.$Customer.KeyVaultSecret.Keys) {
+                    $value = $ConfigurationData.Customers.$Customer.KeyVaultSecret.$variable
+                    New-Variable -Name $variable -Value "`$ConfigurationData.$value" -Force
+                    $value = $value.Replace("[ResourceGroup]",$ConfigurationData.Customers.$Customer.ResourceGroup)
+                    $value = $value.Replace("[Key]",$Keys[0].Value)
+                    $Secret.add($variable,$value)
+                }
+            }
 
-        If ($ResourceGroup.AppServicePlan.Tier -ne "Free") {
-            If (!($AzureRmWebApp.HostNames -like "*$AzureRmWebAppName.$Directory*")) {
-                Write-Output "Set-AzureRmWebApp`n$Header"
+            #Compare configuration file to Key Vault Secret
+            If ($AzureKeyVaultSecret -ne $(ConvertTo-Json $Secret)) {
+                Write-Output "Set-AzureKeyVaultSecret`n$Header"
 
-                $SetAzureRmWebAppParams = @{
-                    Name              = $AzureRmWebAppName
-                    ResourceGroupName = $ResourceGroup.Name
-                    HostNames         = @("$AzureRmWebAppName.$Directory","$AzureRmWebAppName.azurewebsites.net")
+                $AzureKeyVaultSecretParams = @{
+                    Name        = (Remove-IllegalCharactersFromString -String $Customer).ToLower()
+                    SecretValue = (ConvertTo-SecureString $(ConvertTo-Json $Secret) -AsPlainText -Force)
+                    ContentType = "Customer"
+                    VaultName   = $Customer.ResourceGroup
                 }
 
-                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "Set-AzureRmWebApp -$($SetAzureRmWebAppParams.Keys.ForEach({"$_ '$($SetAzureRmWebAppParams.$_)'"}) -join ' -')" -Severity I -Category "AzureRmWebApp" } Catch {} }
-            
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "Set-AzureKeyVaultSecret -$($AzureKeyVaultSecretParams.Keys.ForEach({"$_ '$($AzureKeyVaultSecretParams.$_)'"}) -join ' -')" -Severity I -Category "AzureKeyVaultSecret" } Catch {} }
+
                 Try {
-                    $SetAzureRmWebApp = Set-AzureRmWebApp @SetAzureRmWebAppParams -ErrorAction Stop
+                    $AzureKeyVaultSecret = Set-AzureKeyVaultSecret @AzureKeyVaultSecretParams -ErrorAction Stop
 
-                    if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $SetAzureRmWebApp -Severity I -Category "AzureRmWebApp" } Catch {} }
+                    if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureKeyVaultSecret -Severity I -Category "AzureKeyVaultSecret" } Catch {} }
 
-                    Write-Output $SetAzureRmWebApp
+                    Write-Output $AzureKeyVaultSecret
+                }
+                Catch {
+                    if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureKeyVaultSecret" } Catch {} }
+
+                    Write-Error $_
+                }
+            }
+
+        }
+
+        ForEach ($WebApp in $ConfigurationData.Customers.$Customer.WebApp.Keys){
+
+            $AzureRmWebAppName = (Remove-IllegalCharactersFromString -String $WebApp.Replace("[Customer]",$Customer)).ToLower()
+
+            If ($AzureRmWebAppName.Length -lt $configurationData.GlobalConfiguration.ShortNameCharacters) {
+                $AzureRmWebAppName = "$AzureRmWebAppName$(Get-TruncatedStringHash -String $AzureRmWebAppName -Length ($configurationData.GlobalConfiguration.ShortNameCharacters - $AzureRmWebAppName.Length))"
+            } else {
+                $AzureRmWebAppName = $AzureRmWebAppName.SubString(0,$configurationData.GlobalConfiguration.ShortNameCharacters)
+            } 
+
+            Write-Output "Verify Web App: $AzureRmWebAppName`n$Header"
+            Write-Output ""
+
+            #Verify App Service Plan
+            $AzureRmAppServicePlanName = (Remove-IllegalCharactersFromString -String $ConfigurationData.Customers.$Customer.WebApp.$WebApp.AppServicePlan.Name.Replace("[ResourceGroup]",$ResourceGroup)).ToLower()
+
+            If ($AzureRmAppServicePlanName.Length -lt $configurationData.GlobalConfiguration.ShortNameCharacters) {
+                $AzureRmAppServicePlanName = "$AzureRmAppServicePlanName$(Get-TruncatedStringHash -String $AzureRmAppServicePlanName -Length ($configurationData.GlobalConfiguration.ShortNameCharacters - $AzureRmAppServicePlanName.Length))"
+            } else {
+                $AzureRmAppServicePlanName = $AzureRmAppServicePlanName.SubString(0,$configurationData.GlobalConfiguration.ShortNameCharacters)
+            }
+
+            [string]$Tier = ""
+            If ($ConfigurationData.Customers.$Customer.WebApp.$WebApp.AppServicePlan.Tier) {
+                $Tier = $ConfigurationData.Customers.$Customer.WebApp.$WebApp.AppServicePlan.Tier
+            } Else {
+                $Tier = $ConfigurationData.ResourceGroups.$($ConfigurationData.Customers.$Customer.ResourceGroup).AppServicePlan.$($ConfigurationData.Customers.$Customer.WebApp.$WebApp.AppServicePlan.Name).Tier
+            }
+
+            #Verify App Service Plan
+            If (-not($AzureRmAppServicePlan = Get-AzureRmAppServicePlan -Name $AzureRmAppServicePlanName -ResourceGroupName $ConfigurationData.Customers.$Customer.ResourceGroup -ErrorAction SilentlyContinue)) {
+        
+                Write-Output "New-AzureRmAppServicePlan`n$Header"
+
+                $AzureRmAppServicePlanParams = @{
+                    Name              = $AzureRmAppServicePlanName
+                    Location          = $ConfigurationData.Customers.$ResourceGroup.Location
+                    ResourceGroupName = $ConfigurationData.Customers.$Customer.ResourceGroup
+                    Tier              = $Tier
+                }
+
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "New-AzureRmAppServicePlan -$($AzureRmAppServicePlanParams.Keys.ForEach({"$_ '$($AzureRmAppServicePlanParams.$_)'"}) -join ' -')" -Severity I -Category "AzureRmAppServicePlan" } Catch {} }
+
+                Try {
+                    $AzureRmAppServicePlan = New-AzureRmAppServicePlan @AzureRmAppServicePlanParams -ErrorAction Stop
+
+                    if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureRmAppServicePlan -Severity I -Category "AzureRmAppServicePlan" } Catch {} }
+
+                    Write-Output $AzureRmAppServicePlan
+                }
+                Catch {
+                    if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureRmAppServicePlan" } Catch {} }
+
+                    Write-Error $_
+                }
+            }
+            Else {
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureRmAppServicePlan -Severity I -Category "AzureRmAppServicePlan" } Catch {} }
+            }
+
+            $NewAzureRmWebApp = $False
+
+            If (-not($AzureRmWebApp = Get-AzureRmWebApp -Name $AzureRmWebAppName -ResourceGroupName $ConfigurationData.Customers.$Customer.ResourceGroup -ErrorAction SilentlyContinue)) {
+                Write-Output "New-AzureRmWebApp`n$Header"
+
+                $NewAzureRmWebApp = $True
+
+                $AzureRmWebAppParams = @{
+                    Name              = $AzureRmWebAppName
+                    Location          = $ConfigurationData.Customers.$Customer.Location
+                    ResourceGroupName = $ConfigurationData.Customers.$Customer.ResourceGroup
+                    AppServicePlan    = $AzureRmAppServicePlanName
+                }
+
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "New-AzureRmWebApp -$($AzureRmWebAppParams.Keys.ForEach({"$_ '$($AzureRmWebAppParams.$_)'"}) -join ' -')" -Severity I -Category "AzureRmWebApp" } Catch {} }
+
+                Try {
+                    $AzureRmWebApp = New-AzureRmWebApp @AzureRmWebAppParams -ErrorAction Stop
+
+                    if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureRmWebApp -Severity I -Category "AzureRmWebApp" } Catch {} }
+
+                    Write-Output $AzureRmWebApp
+
+                    Start-Sleep 30
                 }
                 Catch {
                     if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureRmWebApp" } Catch {} }
@@ -840,136 +1179,164 @@ ForEach ($ResourceGroup in $ConfigurationData.ResourceGroups) {
                     Write-Error $_
                 }
             }
-        }
-
-        If ($NewAzureRmWebApp -or $ResourceGroup.WebApp.$AzureRmWebAppKeys.AlwaysUpdate) {
-            #Upload Zip binaries
-            For ($x=1; $x -le 9; $x++)
-            {
-                Try {
-                    $UrlStatusCode = (Invoke-WebRequest -Uri "https://$AzureRmWebAppName.$($ConfigurationData.GlobalConfiguration.KuduAPI.URI)" -UseBasicParsing -DisableKeepAlive).StatusCode
-                    If ($UrlStatusCode -ne "200") {
-                        Start-Sleep 5
-                    } Else { Break }
-                }
-                Catch { Start-Sleep 5 }
+            Else {
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $AzureRmWebApp -Severity I -Category "AzureRmWebApp" } Catch {} }
             }
 
-            Write-Output "Remove-FilesFromWebApp`n$Header"
+            If (!$AzureRmWebApp) { Break }
 
-            Remove-FilesFromWebApp -WebAppName $AzureRmWebAppName -ResourceGroupName $ResourceGroup.Name -Verbose
+            If ($Tier -ne "Free") {
+                If (!($AzureRmWebApp.HostNames -like "*$AzureRmWebAppName.$Directory*")) {
+                    Write-Output "Set-AzureRmWebApp`n$Header"
+
+                    $SetAzureRmWebAppParams = @{
+                        Name              = $AzureRmWebAppName
+                        ResourceGroupName = $ConfigurationData.Customers.$Customer.ResourceGroup
+                        HostNames         = @("$AzureRmWebAppName.$Directory","$AzureRmWebAppName.azurewebsites.net")
+                    }
+
+                    if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "Set-AzureRmWebApp -$($SetAzureRmWebAppParams.Keys.ForEach({"$_ '$($SetAzureRmWebAppParams.$_)'"}) -join ' -')" -Severity I -Category "AzureRmWebApp" } Catch {} }
+            
+                    Try {
+                        $SetAzureRmWebApp = Set-AzureRmWebApp @SetAzureRmWebAppParams -ErrorAction Stop
+
+                        if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $SetAzureRmWebApp -Severity I -Category "AzureRmWebApp" } Catch {} }
+
+                        Write-Output $SetAzureRmWebApp
+                    }
+                    Catch {
+                        if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureRmWebApp" } Catch {} }
+
+                        Write-Error $_
+                    }
+                }
+            }
+
+            If ($NewAzureRmWebApp -or $ConfigurationData.Customers.$Customer.WebApp.$WebApp.AlwaysUpdate) {
+                #Upload Zip binaries
+                For ($x=1; $x -le 9; $x++)
+                {
+                    Try {
+                        $UrlStatusCode = (Invoke-WebRequest -Uri "https://$AzureRmWebAppName.$($ConfigurationData.GlobalConfiguration.KuduAPI.URI)" -UseBasicParsing -DisableKeepAlive).StatusCode
+                        If ($UrlStatusCode -ne "200") {
+                            Start-Sleep 5
+                        } Else { Break }
+                    }
+                    Catch { Start-Sleep 5 }
+                }
+
+                If (-not ($NewAzureRmWebApp)) {
+                    Write-Output "Remove-FilesFromWebApp`n$Header"
+
+                    Remove-FilesFromWebApp -WebAppName $AzureRmWebAppName -ResourceGroupName $ResourceGroup -Verbose
         
-            Write-Output ""
-
-            Write-Output "Set-FileToWebApp`n$Header"
-
-            $FileToWebAppParams = @{
-                WebAppName        = $AzureRmWebAppName
-                FileName          = $ResourceGroup.WebApp.$AzureRmWebAppKeys.SourceRepo
-                ResourceGroupName = $ResourceGroup.Name
-            }
-
-            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "New-AzureRmWebApp -$($FileToWebAppParams.Keys.ForEach({"$_ '$($FileToWebAppParams.$_)'"}) -join ' -')" -Severity I -Category "FileToWebApp" } Catch {} }
-
-            Try {
-                $FileToWebApp = Set-FileToWebApp @FileToWebAppParams -Verbose
-    
-                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $FileToWebApp -Severity I -Category "FileToWebApp" } Catch {} }
-
-                Write-Output $FileToWebApp
-            }
-            Catch {
-                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "FileToWebApp" } Catch {} }
-
-                Write-Error $_
-            }
-        }
-
-        #Define App Settings properties
-        $AppSettings = @{}
-        If ($ResourceGroup.WebApp.$AzureRmWebAppKeys.AppSettings.Keys) {
-            ForEach ($variable in $ResourceGroup.WebApp.$AzureRmWebAppKeys.AppSettings.Keys) {
-                $value = $ResourceGroup.WebApp.$AzureRmWebAppKeys.AppSettings.$variable
-                @("[","]") | ForEach-Object { $value = $value.Replace($_,"") }
-                $prop = $value.Split(".")[-1]
-                @("_","-") | ForEach-Object { $prop = $prop.Replace($_,"") }
-                New-Variable -Name $value -Value "`$ConfigurationData.$value" -Force
-                If (($AzureKeyVaultSecret = (Get-AzureKeyVaultSecret $AzureRmKeyVaultName -Name $prop).SecretValueText) -ne $value) {
-                    $value = $AzureKeyVaultSecret
+                    Write-Output ""
                 }
-                $value = $value.Replace("[ResourceGroup]",$ResourceGroup.Name)
-                $value = $value.Replace("[Key]",$Keys[0].Value)
-                $AppSettings.add($variable,$value)
+
+                Write-Output "Set-FileToWebApp`n$Header"
+
+                If ($ConfigurationData.Customers.$Customer.WebApp.$WebApp.GlobalConfiguration) {
+                    $FileName = $ConfigurationData.GlobalConfiguration.WebApp.SourceRepo
+                } Else {
+                    $FileName = $ConfigurationData.Customers.$Customer.WebApp.$WebApp.SourceRepo
+                }
+
+                $FileToWebAppParams = @{
+                    WebAppName        = $AzureRmWebAppName
+                    FileName          = $FileName
+                    ResourceGroupName = $ConfigurationData.Customers.$Customer.ResourceGroup
+                }
+
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "New-AzureRmWebApp -$($FileToWebAppParams.Keys.ForEach({"$_ '$($FileToWebAppParams.$_)'"}) -join ' -')" -Severity I -Category "FileToWebApp" } Catch {} }
+
+                Try {
+                    $FileToWebApp = Set-FileToWebApp @FileToWebAppParams -Verbose
+    
+                    if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $FileToWebApp -Severity I -Category "FileToWebApp" } Catch {} }
+
+                    Write-Output $FileToWebApp
+                }
+                Catch {
+                    if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "FileToWebApp" } Catch {} }
+
+                    Write-Error $_
+                }
             }
-        }
-        Else {
-            If ($ResourceGroup.WebApp.$AzureRmWebAppKeys.GlobalConfiguration) {
-                If ($ConfigurationData.SaaSService.KeyVault.Secrets.AppSettings.Keys) {
-                    ForEach ($variable in $ConfigurationData.SaaSService.KeyVault.Secrets.AppSettings.Keys) {
-                        $value = $ConfigurationData.SaaSService.KeyVault.Secrets.AppSettings.$variable
-                        @("[","]") | ForEach-Object { $value = $value.Replace($_,"") }
-                        $prop = $variable
-                        @("_","-") | ForEach-Object { $prop = $prop.Replace($_,"") }
+
+            #Define App Settings properties
+            $AppSettings = @{}
+            If ($ConfigurationData.Customers.$Customer.WebApp.$WebApp.AppSettings.GlobalConfiguration) {
+                ForEach ($variable in $ConfigurationData.GlobalConfiguration.AppSettings.Keys) {
+                    $value = $ConfigurationData.GlobalConfiguration.AppSettings.$variable
+                    New-Variable -Name $value -Value "`$ConfigurationData.$value" -Force
+                    $value = $value.Replace("[WebApp]",$AzureRmWebAppName)
+                    $value = $value.Replace("[Key]",$Keys[0].Value)
+                    $AppSettings.add($variable,$value)
+                }
+            }
+            Else {
+                If ($ConfigurationData.Customers.$Customer.WebApp.$WebApp.AppSettings.Keys) {
+                    ForEach ($variable in $ConfigurationData.Customers.$Customer.WebApp.$WebApp.AppSettings.Keys) {
                         New-Variable -Name $value -Value "`$ConfigurationData.$value" -Force
-                        If (($AzureKeyVaultSecret = (Get-AzureKeyVaultSecret $AzureRmKeyVaultName -Name $prop).SecretValueText) -ne $value) {
-                            $value = $AzureKeyVaultSecret
-                        }
-                        $value = $value.Replace("[ResourceGroup]",$ResourceGroup.Name)
+                        $value = $value.Replace("[WebApp]",$AzureRmWebAppName)
                         $value = $value.Replace("[Key]",$Keys[0].Value)
                         $AppSettings.add($variable,$value)
                     }
                 }
             }
-        }
 
-        $MyAzureRmWebApp = Get-AzureRmWebApp -Name $AzureRmWebAppName -ResourceGroupName $ResourceGroup.Name | Select -ExpandProperty SiteConfig | Select -ExpandProperty AppSettings
+            $MyAzureRmWebApp = Get-AzureRmWebApp -Name $AzureRmWebAppName -ResourceGroupName $ConfigurationData.Customers.$Customer.ResourceGroup | Select -ExpandProperty SiteConfig | Select -ExpandProperty AppSettings
 
-        [hashtable]$cAppSettings = @{}
-        ForEach ($item in $MyAzureRmWebApp) {
-            $cAppSettings.Add($item.Name,$item.Value)
-        }
-
-        [bool]$AppSettingsUpdate = $False
-
-        ForEach ($Item in $AppSettings.Keys) {
-            If ($cAppSettings.$Item -ne $AppSettings.$Item) {
-                $AppSettingsUpdate = $True
-                break
-            }
-        }
-
-        ForEach ($Item in $cAppSettings.Keys) {
-            If ($AppSettings.$Item -ne $cAppSettings.$Item) {
-                $AppSettingsUpdate = $True
-                break
-            }
-        }
-
-        If ($AppSettingsUpdate) {
-            $SetAzureRmWebAppParams = @{
-                Name              = $AzureRmWebAppName
-                ResourceGroupName = $ResourceGroup.Name
-                AppSettings       = $AppSettings
+            [hashtable]$cAppSettings = @{}
+            ForEach ($item in $MyAzureRmWebApp) {
+                $cAppSettings.Add($item.Name,$item.Value)
             }
 
-            Write-Output "Set-AzureRmWebApp`n$Header"
+            [bool]$AppSettingsUpdate = $False
 
-            if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "Set-AzureRmWebApp -$($SetAzureRmWebAppParams.Keys.ForEach({"$_ '$($SetAzureRmWebAppParams.$_)'"}) -join ' -')" -Severity I -Category "AzureRmWebAppSettings" } Catch {} }
-
-            Try {
-                $null = Set-AzureRmWebApp @SetAzureRmWebAppParams -ErrorAction Stop
-
-                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $SetAzureRmWebAppParams.AppSettings -Severity I -Category "AzureRmWebAppSettings" } Catch {} }
-
-                Write-Output $SetAzureRmWebAppParams.AppSettings.Keys
+            ForEach ($Item in $AppSettings.Keys) {
+                If ($cAppSettings.$Item -ne $AppSettings.$Item) {
+                    $AppSettingsUpdate = $True
+                    break
+                }
             }
-            Catch {
-                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureRmWebAppSettings" } Catch {} }
 
-                Write-Error $_
+            ForEach ($Item in $cAppSettings.Keys) {
+                If ($AppSettings.$Item -ne $cAppSettings.$Item) {
+                    $AppSettingsUpdate = $True
+                    break
+                }
             }
+
+            If ($AppSettingsUpdate) {
+                $SetAzureRmWebAppParams = @{
+                    Name              = $AzureRmWebAppName
+                    ResourceGroupName = $ConfigurationData.Customers.$Customer.ResourceGroup
+                    AppSettings       = $AppSettings
+                }
+
+                Write-Output "Set-AzureRmWebApp`n$Header"
+
+                if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message "Set-AzureRmWebApp -$($SetAzureRmWebAppParams.Keys.ForEach({"$_ '$($SetAzureRmWebAppParams.$_)'"}) -join ' -')" -Severity I -Category "AzureRmWebAppSettings" } Catch {} }
+
+                Try {
+                    $null = Set-AzureRmWebApp @SetAzureRmWebAppParams -ErrorAction Stop
+
+                    if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $SetAzureRmWebAppParams.AppSettings -Severity I -Category "AzureRmWebAppSettings" } Catch {} }
+
+                    Write-Output $SetAzureRmWebAppParams.AppSettings.Keys
+                }
+                Catch {
+                    if ($configurationData.GlobalConfiguration.LogEnabled) { Try { Invoke-Logger -Message $_ -Severity E -Category "AzureRmWebAppSettings" } Catch {} }
+
+                    Write-Error $_
+                }
+            }
+            #>
+
         }
     }
+
 }
 #endregion
 
