@@ -65,7 +65,7 @@
 
     Customers = @(
         @{     
-            "Addlevel3" = @{
+            "Addlevel" = @{
                 Location                = "West Europe"
 
                 ResourceGroup           = "SignUp-xfw-prod-rg"
@@ -86,7 +86,7 @@
                     @{     
                         "[Customer]" = @{
                             GlobalConfiguration     = $True
-                            AlwaysUpdate            = $True
+                            AlwaysUpdate            = $False
                             AppSettings = @{
                                 GlobalConfiguration = $True
                             }
@@ -103,9 +103,9 @@
                 }
 
                 Tags = @{
-                    Customer            = "Addlevel"
-                    Solution            = "Exflow Cloud"
-                    Project             = "SaaS"
+                    Customer = "Addlevel"
+                    Solution = "Exflow Cloud"
+                    Project  = "SaaS"
                 }
             }
         }
