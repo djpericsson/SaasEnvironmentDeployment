@@ -199,6 +199,9 @@ Function Get-RequiredModules
      [Parameter(Mandatory=$true)]
      [String] $SelfSignedCertPlainPassword,
 
+     [Parameter(Mandatory=$true)]
+     [String]$CertificateAssetName,
+
      [Parameter(Mandatory=$false)]
      [String] $EnterpriseCertPathForRunAsAccount,
 
@@ -289,10 +292,10 @@ Function Get-RequiredModules
  	    return $Application.ApplicationId.ToString();
      }
 
-     function CreateAutomationCertificateAsset ([string] $resourceGroup, [string] $automationAccountName, [string] $certifcateAssetName,[string] $certPath, [string] $certPlainPassword, [Boolean] $Exportable) {
+     function CreateAutomationCertificateAsset ([string] $resourceGroup, [string] $automationAccountName, [string] $CertificateAssetName,[string] $certPath, [string] $certPlainPassword, [Boolean] $Exportable) {
          $CertPassword = ConvertTo-SecureString $certPlainPassword -AsPlainText -Force   
-         Remove-AzureRmAutomationCertificate -ResourceGroupName $resourceGroup -AutomationAccountName $automationAccountName -Name $certifcateAssetName -ErrorAction SilentlyContinue
-         New-AzureRmAutomationCertificate -ResourceGroupName $resourceGroup -AutomationAccountName $automationAccountName -Path $certPath -Name $certifcateAssetName -Password $CertPassword -Exportable:$Exportable  | write-verbose
+         Remove-AzureRmAutomationCertificate -ResourceGroupName $resourceGroup -AutomationAccountName $automationAccountName -Name $CertificateAssetName -ErrorAction SilentlyContinue
+         New-AzureRmAutomationCertificate -ResourceGroupName $resourceGroup -AutomationAccountName $automationAccountName -Path $certPath -Name $CertificateAssetName -Password $CertPassword -Exportable:$Exportable  | write-verbose
      }
 
      function CreateAutomationConnectionAsset ([string] $resourceGroup, [string] $automationAccountName, [string] $connectionAssetName, [string] $connectionTypeName, [System.Collections.Hashtable] $connectionFieldValues ) {
@@ -312,17 +315,22 @@ Function Get-RequiredModules
      #Login-AzureRmAccount -Environment $EnvironmentName 
      $Subscription = Select-AzureRmSubscription -SubscriptionId $SubscriptionId
 
+     $ConnectionAssetName  = "$($CertificateAssetName)Connection"
+     $ConnectionTypeName   = "AzureServicePrincipal"
+     #$ConnectionTypeName   = "$($CertificateAssetName)ServicePrincipal"
+     $CertificateAssetName = "$($CertificateAssetName)Certificate"
+
      # Create a Run As account by using a service principal
-     $CertifcateAssetName = "AzureRunAsCertificate"
-     $ConnectionAssetName = "AzureRunAsConnection"
-     $ConnectionTypeName = "AzureServicePrincipal"
+     #$CertificateAssetName = "AzureRunAsCertificate"
+     #$ConnectionAssetName = "AzureRunAsConnection"
+     #$ConnectionTypeName = "AzureServicePrincipal"
 
      if ($EnterpriseCertPathForRunAsAccount -and $EnterpriseCertPlainPasswordForRunAsAccount) {
          $PfxCertPathForRunAsAccount = $EnterpriseCertPathForRunAsAccount
          $PfxCertPlainPasswordForRunAsAccount = $EnterpriseCertPlainPasswordForRunAsAccount
      }
      else {
-        $CertificateName = $AutomationAccountName+$CertifcateAssetName
+        $CertificateName = $AutomationAccountName+$CertificateAssetName
         $PfxCertPathForRunAsAccount = Join-Path $env:TEMP ($CertificateName + ".pfx")
         $PfxCertPlainPasswordForRunAsAccount = $SelfSignedCertPlainPassword
         $CerCertPathForRunAsAccount = Join-Path $env:TEMP ($CertificateName + ".cer")
@@ -335,7 +343,7 @@ Function Get-RequiredModules
      $ApplicationId=CreateServicePrincipal $PfxCert $ApplicationDisplayName
 
      # Create the Automation certificate asset
-     CreateAutomationCertificateAsset $ResourceGroup $AutomationAccountName $CertifcateAssetName $PfxCertPathForRunAsAccount $PfxCertPlainPasswordForRunAsAccount $true
+     CreateAutomationCertificateAsset $ResourceGroup $AutomationAccountName $CertificateAssetName $PfxCertPathForRunAsAccount $PfxCertPlainPasswordForRunAsAccount $true
 
      # Populate the ConnectionFieldValues
      $SubscriptionInfo = Get-AzureRmSubscription -SubscriptionId $SubscriptionId
