@@ -1,4 +1,5 @@
-﻿Function Remove-IllegalCharactersFromString {
+﻿#Remove undesired characters from string
+Function Remove-IllegalCharactersFromString {
     param(
         [Parameter(Mandatory=$True)]
         [string]$String
@@ -16,6 +17,7 @@
     return $String
 }
 
+#Create a hash from string
 Function Get-TruncatedStringHash
 { 
     Param
@@ -39,6 +41,7 @@ Function Get-TruncatedStringHash
     $StringBuilder.ToString().Substring(0,$Length)
 }
 
+#Get Web App publishing credentials
 Function Get-AzureRmWebAppPublishingCredentials {
     param(
         [Parameter(Mandatory=$True)]
@@ -65,6 +68,7 @@ Function Get-AzureRmWebAppPublishingCredentials {
     return $publishingCredentials
 }
 
+#Get KuduAPI authentication header
 Function Get-KuduApiAuthorisationHeaderValue {
     param(
         [Parameter(Mandatory=$True)]
@@ -81,6 +85,7 @@ Function Get-KuduApiAuthorisationHeaderValue {
     return ("Basic {0}" -f [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("{0}:{1}" -f $publishingCredentials.Properties.PublishingUserName, $publishingCredentials.Properties.PublishingPassword))))
 }
 
+#Remove existing files from Web App
 Function Remove-FilesFromWebApp {
     param(
         [Parameter(Mandatory=$True)]
@@ -105,6 +110,7 @@ Function Remove-FilesFromWebApp {
     Invoke-RestMethod -Uri $apiUrl -Headers @{"Authorization"=$AuthorisationToken;"If-Match"="*"} -Method POST -ContentType "application/json" -Body (ConvertTo-Json $commandBody) -TimeoutSec $Timeout | Out-Null
 }
 
+#Set new files to Web App
 Function Set-FileToWebApp {
     param(
         [Parameter(Mandatory=$True)]
@@ -126,6 +132,7 @@ Function Set-FileToWebApp {
     Return $Result
 }
 
+#Properly converted HashTable for import
 Function Get-ConfigurationDataAsObject
 {
     [CmdletBinding()]
@@ -139,6 +146,7 @@ Function Get-ConfigurationDataAsObject
     return $ConfigurationData
 }
 
+#Verify PowerShell modules versions
 Function Get-RequiredModules
 {
     param(
@@ -178,73 +186,73 @@ Function Get-RequiredModules
     Return $hasErrors
 }
 
- function CreateAzureRunAsAccount
- {     
-     Param (
-     [Parameter(Mandatory=$true)]
-     [String] $ResourceGroup,
+function CreateAzureRunAsAccount
+{     
+    Param (
+        [Parameter(Mandatory=$true)]
+        [String] $ResourceGroup,
 
-     [Parameter(Mandatory=$true)]
-     [String] $AutomationAccountName,
+        [Parameter(Mandatory=$true)]
+        [String] $AutomationAccountName,
 
-     [Parameter(Mandatory=$true)]
-     [String] $ApplicationDisplayName,
+        [Parameter(Mandatory=$true)]
+        [String] $ApplicationDisplayName,
 
-     [Parameter(Mandatory=$true)]
-     [String] $SubscriptionId,
+        [Parameter(Mandatory=$true)]
+        [String] $SubscriptionId,
 
-     [Parameter(Mandatory=$true)]
-     [Boolean] $CreateClassicRunAsAccount,
+        [Parameter(Mandatory=$true)]
+        [Boolean] $CreateClassicRunAsAccount,
 
-     [Parameter(Mandatory=$true)]
-     [String] $SelfSignedCertPlainPassword,
+        [Parameter(Mandatory=$true)]
+        [String] $SelfSignedCertPlainPassword,
 
-     [Parameter(Mandatory=$true)]
-     [String]$CertificateAssetName,
+        [Parameter(Mandatory=$true)]
+        [String]$CertificateAssetName,
 
-     [Parameter(Mandatory=$false)]
-     [String] $EnterpriseCertPathForRunAsAccount,
+        [Parameter(Mandatory=$false)]
+        [String] $EnterpriseCertPathForRunAsAccount,
 
-     [Parameter(Mandatory=$false)]
-     [String] $EnterpriseCertPlainPasswordForRunAsAccount,
+        [Parameter(Mandatory=$false)]
+        [String] $EnterpriseCertPlainPasswordForRunAsAccount,
 
-     [Parameter(Mandatory=$false)]
-     [String] $EnterpriseCertPathForClassicRunAsAccount,
+        [Parameter(Mandatory=$false)]
+        [String] $EnterpriseCertPathForClassicRunAsAccount,
 
-     [Parameter(Mandatory=$false)]
-     [String] $EnterpriseCertPlainPasswordForClassicRunAsAccount,
+        [Parameter(Mandatory=$false)]
+        [String] $EnterpriseCertPlainPasswordForClassicRunAsAccount,
 
-     [Parameter(Mandatory=$false)]
-     [ValidateSet("AzureCloud","AzureUSGovernment")]
-     [string]$EnvironmentName="AzureCloud",
+        [Parameter(Mandatory=$false)]
+        [ValidateSet("AzureCloud","AzureUSGovernment")]
+        [string]$EnvironmentName="AzureCloud",
 
-     [Parameter(Mandatory=$false)]
-     [int] $SelfSignedCertNoOfMonthsUntilExpired = 12
-     )
+        [Parameter(Mandatory=$false)]
+        [int] $SelfSignedCertNoOfMonthsUntilExpired = 12
+    )
 
-     function CreateSelfSignedCertificate([string] $keyVaultName, [string] $certificateName, [string] $selfSignedCertPlainPassword,
- 							              [string] $certPath, [string] $certPathCer, [string] $selfSignedCertNoOfMonthsUntilExpired ) {
+    function CreateSelfSignedCertificate([string] $keyVaultName, [string] $certificateName, [string] $selfSignedCertPlainPassword,
+ 							            [string] $certPath, [string] $certPathCer, [string] $selfSignedCertNoOfMonthsUntilExpired ) {
 
-         $Cert = ""
-         If (([environment]::OSVersion.Version).Major -eq "6") {
-             $Cert = New-SelfSignedCertificate -DnsName $certificateName -CertStoreLocation cert:\LocalMachine\My
-         }
-         Else {
-             $Cert = New-SelfSignedCertificate -DnsName $certificateName -CertStoreLocation cert:\LocalMachine\My `
- 	                -KeyExportPolicy Exportable -Provider "Microsoft Enhanced RSA and AES Cryptographic Provider" `
- 	                -NotAfter (Get-Date).AddMonths($selfSignedCertNoOfMonthsUntilExpired)
-         }
+        $Cert = ""
+        If (([environment]::OSVersion.Version).Major -eq "6") {
+            $Cert = New-SelfSignedCertificate -DnsName $certificateName -CertStoreLocation cert:\LocalMachine\My
+        }
+        Else {
+            $Cert = New-SelfSignedCertificate -DnsName $certificateName -CertStoreLocation cert:\LocalMachine\My `
+ 	            -KeyExportPolicy Exportable -Provider "Microsoft Enhanced RSA and AES Cryptographic Provider" `
+ 	            -NotAfter (Get-Date).AddMonths($selfSignedCertNoOfMonthsUntilExpired)
+        }
 
-         $CertPassword = ConvertTo-SecureString $selfSignedCertPlainPassword -AsPlainText -Force
+        $CertPassword = ConvertTo-SecureString $selfSignedCertPlainPassword -AsPlainText -Force
 
-         Export-PfxCertificate -Cert ("Cert:\localmachine\my\" + $Cert.Thumbprint) -FilePath $certPath -Password $CertPassword -Force | Write-Verbose
-         Export-Certificate -Cert ("Cert:\localmachine\my\" + $Cert.Thumbprint) -FilePath $certPathCer -Type CERT | Write-Verbose
-     }
+        Export-PfxCertificate -Cert ("Cert:\localmachine\my\" + $Cert.Thumbprint) -FilePath $certPath -Password $CertPassword -Force | Write-Verbose
+        Export-Certificate -Cert ("Cert:\localmachine\my\" + $Cert.Thumbprint) -FilePath $certPathCer -Type CERT | Write-Verbose
+    }
 
-     function CreateServicePrincipal([System.Security.Cryptography.X509Certificates.X509Certificate2] $PfxCert, [string] $applicationDisplayName) {  
-         $CurrentDate = Get-Date
-         $keyValue = [System.Convert]::ToBase64String($PfxCert.GetRawCertData())
-         $KeyId = (New-Guid).Guid
+    function CreateServicePrincipal([System.Security.Cryptography.X509Certificates.X509Certificate2] $PfxCert, [string] $applicationDisplayName) {  
+        $CurrentDate = Get-Date
+        $keyValue = [System.Convert]::ToBase64String($PfxCert.GetRawCertData())
+        $KeyId = (New-Guid).Guid
 
         $azureRmModuleVersion = Get-Module -ListAvailable -Name AzureRm | Sort-Object -Descending | Select -First 1
 
@@ -256,105 +264,104 @@ Function Get-RequiredModules
             $KeyCredential = New-Object Microsoft.Azure.Graph.RBAC.Version1_6.ActiveDirectory.PSADKeyCredential
         }
 
-         #$KeyCredential = New-Object Microsoft.Azure.Graph.RBAC.Version1_6.ActiveDirectory.PSADKeyCredential
-         #$KeyCredential = New-Object Microsoft.Azure.Commands.Resources.Models.ActiveDirectory.PSADKeyCredential
+        #$KeyCredential = New-Object Microsoft.Azure.Graph.RBAC.Version1_6.ActiveDirectory.PSADKeyCredential
+        #$KeyCredential = New-Object Microsoft.Azure.Commands.Resources.Models.ActiveDirectory.PSADKeyCredential
 
-         $KeyCredential.StartDate = $CurrentDate
-         $KeyCredential.EndDate= [DateTime]$PfxCert.GetExpirationDateString()
-         $KeyCredential.EndDate = $KeyCredential.EndDate.AddDays(-1)
-         $KeyCredential.KeyId = $KeyId
-         $KeyCredential.CertValue  = $keyValue
+        $KeyCredential.StartDate = $CurrentDate
+        $KeyCredential.EndDate= [DateTime]$PfxCert.GetExpirationDateString()
+        $KeyCredential.EndDate = $KeyCredential.EndDate.AddDays(-1)
+        $KeyCredential.KeyId = $KeyId
+        $KeyCredential.CertValue  = $keyValue
 
-         # Use key credentials and create an Azure AD application
-         $Application = New-AzureRmADApplication -DisplayName $ApplicationDisplayName -HomePage ("http://" + $applicationDisplayName) -IdentifierUris ("http://" + $KeyId) -KeyCredentials $KeyCredential
+        # Use key credentials and create an Azure AD application
+        $Application = New-AzureRmADApplication -DisplayName $ApplicationDisplayName -HomePage ("http://" + $applicationDisplayName) -IdentifierUris ("http://" + $KeyId) -KeyCredentials $KeyCredential
 
-         If (-not(Get-AzureRmADServicePrincipal -SearchString $Application.ApplicationId -ErrorAction SilentlyContinue)) {
-            $ServicePrincipal = New-AzureRMADServicePrincipal -ApplicationId $Application.ApplicationId
-            Start-Sleep -Seconds 30
-         }
+        If (-not(Get-AzureRmADServicePrincipal -SearchString $Application.ApplicationId -ErrorAction SilentlyContinue)) {
+        $ServicePrincipal = New-AzureRMADServicePrincipal -ApplicationId $Application.ApplicationId
+        Start-Sleep -Seconds 30
+        }
 
-         $GetServicePrincipal = Get-AzureRmADServicePrincipal -ObjectId $ServicePrincipal.Id
+        $GetServicePrincipal = Get-AzureRmADServicePrincipal -ObjectId $ServicePrincipal.Id
 
-         # Sleep here for a few seconds to allow the service principal application to become active (ordinarily takes a few seconds)
-         Sleep -s 15
+        # Sleep here for a few seconds to allow the service principal application to become active (ordinarily takes a few seconds)
+        Sleep -s 15
 
-         $NewRole = New-AzureRMRoleAssignment -RoleDefinitionName Contributor -ServicePrincipalName $Application.ApplicationId -ErrorAction SilentlyContinue
+        $NewRole = New-AzureRMRoleAssignment -RoleDefinitionName Contributor -ServicePrincipalName $Application.ApplicationId -ErrorAction SilentlyContinue
 
-         $Retries = 0;
-         While ($NewRole -eq $null -and $Retries -le 6)
-         {
- 	        Sleep -s 10
- 	        New-AzureRMRoleAssignment -RoleDefinitionName Contributor -ServicePrincipalName $Application.ApplicationId | Write-Verbose -ErrorAction SilentlyContinue
- 	        $NewRole = Get-AzureRMRoleAssignment -ServicePrincipalName $Application.ApplicationId -ErrorAction SilentlyContinue
- 	        $Retries++;
-         }
+        $Retries = 0;
+        While ($NewRole -eq $null -and $Retries -le 6)
+        {
+ 	    Sleep -s 10
+ 	    New-AzureRMRoleAssignment -RoleDefinitionName Contributor -ServicePrincipalName $Application.ApplicationId | Write-Verbose -ErrorAction SilentlyContinue
+ 	    $NewRole = Get-AzureRMRoleAssignment -ServicePrincipalName $Application.ApplicationId -ErrorAction SilentlyContinue
+ 	    $Retries++;
+        }
 
- 	    return $Application.ApplicationId.ToString();
-     }
+        return $Application.ApplicationId.ToString();
+    }
 
-     function CreateAutomationCertificateAsset ([string] $resourceGroup, [string] $automationAccountName, [string] $CertificateAssetName,[string] $certPath, [string] $certPlainPassword, [Boolean] $Exportable) {
-         $CertPassword = ConvertTo-SecureString $certPlainPassword -AsPlainText -Force   
-         Remove-AzureRmAutomationCertificate -ResourceGroupName $resourceGroup -AutomationAccountName $automationAccountName -Name $CertificateAssetName -ErrorAction SilentlyContinue
-         New-AzureRmAutomationCertificate -ResourceGroupName $resourceGroup -AutomationAccountName $automationAccountName -Path $certPath -Name $CertificateAssetName -Password $CertPassword -Exportable:$Exportable  | write-verbose
-     }
+    function CreateAutomationCertificateAsset ([string] $resourceGroup, [string] $automationAccountName, [string] $CertificateAssetName,[string] $certPath, [string] $certPlainPassword, [Boolean] $Exportable) {
+        $CertPassword = ConvertTo-SecureString $certPlainPassword -AsPlainText -Force   
+        Remove-AzureRmAutomationCertificate -ResourceGroupName $resourceGroup -AutomationAccountName $automationAccountName -Name $CertificateAssetName -ErrorAction SilentlyContinue
+        New-AzureRmAutomationCertificate -ResourceGroupName $resourceGroup -AutomationAccountName $automationAccountName -Path $certPath -Name $CertificateAssetName -Password $CertPassword -Exportable:$Exportable  | write-verbose
+    }
 
-     function CreateAutomationConnectionAsset ([string] $resourceGroup, [string] $automationAccountName, [string] $connectionAssetName, [string] $connectionTypeName, [System.Collections.Hashtable] $connectionFieldValues ) {
-         Remove-AzureRmAutomationConnection -ResourceGroupName $resourceGroup -AutomationAccountName $automationAccountName -Name $connectionAssetName -Force -ErrorAction SilentlyContinue
-         New-AzureRmAutomationConnection -ResourceGroupName $ResourceGroup -AutomationAccountName $automationAccountName -Name $connectionAssetName -ConnectionTypeName $connectionTypeName -ConnectionFieldValues $connectionFieldValues
-     }
+    function CreateAutomationConnectionAsset ([string] $resourceGroup, [string] $automationAccountName, [string] $connectionAssetName, [string] $connectionTypeName, [System.Collections.Hashtable] $connectionFieldValues ) {
+        Remove-AzureRmAutomationConnection -ResourceGroupName $resourceGroup -AutomationAccountName $automationAccountName -Name $connectionAssetName -Force -ErrorAction SilentlyContinue
+        New-AzureRmAutomationConnection -ResourceGroupName $ResourceGroup -AutomationAccountName $automationAccountName -Name $connectionAssetName -ConnectionTypeName $connectionTypeName -ConnectionFieldValues $connectionFieldValues
+    }
 
-     Import-Module AzureRM.Profile
-     Import-Module AzureRM.Resources
+    Import-Module AzureRM.Profile
+    Import-Module AzureRM.Resources
 
-     $AzureRMProfileVersion= (Get-Module AzureRM.Profile).Version
-     if (!(($AzureRMProfileVersion.Major -ge 3 -and $AzureRMProfileVersion.Minor -ge 0) -or ($AzureRMProfileVersion.Major -gt 3))) {
- 	    Write-Error -Message "Please install the latest Azure PowerShell and retry. Relevant doc url : https://docs.microsoft.com/powershell/azureps-cmdlets-docs/ "
- 	    return
-     }
+    $AzureRMProfileVersion= (Get-Module AzureRM.Profile).Version
+    if (!(($AzureRMProfileVersion.Major -ge 3 -and $AzureRMProfileVersion.Minor -ge 0) -or ($AzureRMProfileVersion.Major -gt 3))) {
+    Write-Error -Message "Please install the latest Azure PowerShell and retry. Relevant doc url : https://docs.microsoft.com/powershell/azureps-cmdlets-docs/ "
+    return
+    }
 
-     #Login-AzureRmAccount -Environment $EnvironmentName 
-     $Subscription = Select-AzureRmSubscription -SubscriptionId $SubscriptionId
+    #Login-AzureRmAccount -Environment $EnvironmentName 
+    $Subscription = Select-AzureRmSubscription -SubscriptionId $SubscriptionId
 
-     $ConnectionAssetName  = "$($CertificateAssetName)Connection"
-     $ConnectionTypeName   = "AzureServicePrincipal"
-     #$ConnectionTypeName   = "$($CertificateAssetName)ServicePrincipal"
-     $CertificateAssetName = "$($CertificateAssetName)Certificate"
+    $ConnectionAssetName  = "$($CertificateAssetName)Connection"
+    $ConnectionTypeName   = "AzureServicePrincipal"
+    $CertificateAssetName = "$($CertificateAssetName)Certificate"
 
-     # Create a Run As account by using a service principal
-     #$CertificateAssetName = "AzureRunAsCertificate"
-     #$ConnectionAssetName = "AzureRunAsConnection"
-     #$ConnectionTypeName = "AzureServicePrincipal"
+    # Create a Run As account by using a service principal
+    #$CertificateAssetName = "AzureRunAsCertificate"
+    #$ConnectionAssetName = "AzureRunAsConnection"
+    #$ConnectionTypeName = "AzureServicePrincipal"
 
-     if ($EnterpriseCertPathForRunAsAccount -and $EnterpriseCertPlainPasswordForRunAsAccount) {
-         $PfxCertPathForRunAsAccount = $EnterpriseCertPathForRunAsAccount
-         $PfxCertPlainPasswordForRunAsAccount = $EnterpriseCertPlainPasswordForRunAsAccount
-     }
-     else {
+    if ($EnterpriseCertPathForRunAsAccount -and $EnterpriseCertPlainPasswordForRunAsAccount) {
+        $PfxCertPathForRunAsAccount = $EnterpriseCertPathForRunAsAccount
+        $PfxCertPlainPasswordForRunAsAccount = $EnterpriseCertPlainPasswordForRunAsAccount
+    }
+    else {
         $CertificateName = $AutomationAccountName+$CertificateAssetName
         $PfxCertPathForRunAsAccount = Join-Path $env:TEMP ($CertificateName + ".pfx")
         $PfxCertPlainPasswordForRunAsAccount = $SelfSignedCertPlainPassword
         $CerCertPathForRunAsAccount = Join-Path $env:TEMP ($CertificateName + ".cer")
 
         CreateSelfSignedCertificate $KeyVaultName $CertificateName $PfxCertPlainPasswordForRunAsAccount $PfxCertPathForRunAsAccount $CerCertPathForRunAsAccount $SelfSignedCertNoOfMonthsUntilExpired
-     }
+    }
 
-     # Create a service principal
-     $PfxCert = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2 -ArgumentList @($PfxCertPathForRunAsAccount, $PfxCertPlainPasswordForRunAsAccount)
-     $ApplicationId=CreateServicePrincipal $PfxCert $ApplicationDisplayName
+    # Create a service principal
+    $PfxCert = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2 -ArgumentList @($PfxCertPathForRunAsAccount, $PfxCertPlainPasswordForRunAsAccount)
+    $ApplicationId=CreateServicePrincipal $PfxCert $ApplicationDisplayName
 
-     # Create the Automation certificate asset
-     CreateAutomationCertificateAsset $ResourceGroup $AutomationAccountName $CertificateAssetName $PfxCertPathForRunAsAccount $PfxCertPlainPasswordForRunAsAccount $true
+    # Create the Automation certificate asset
+    CreateAutomationCertificateAsset $ResourceGroup $AutomationAccountName $CertificateAssetName $PfxCertPathForRunAsAccount $PfxCertPlainPasswordForRunAsAccount $true
 
-     # Populate the ConnectionFieldValues
-     $SubscriptionInfo = Get-AzureRmSubscription -SubscriptionId $SubscriptionId
-     $TenantID = $SubscriptionInfo | Select TenantId -First 1
-     $Thumbprint = $PfxCert.Thumbprint
-     $ConnectionFieldValues = @{"ApplicationId" = $ApplicationId; "TenantId" = $TenantID.TenantId; "CertificateThumbprint" = $Thumbprint; "SubscriptionId" = $SubscriptionId}
+    # Populate the ConnectionFieldValues
+    $SubscriptionInfo = Get-AzureRmSubscription -SubscriptionId $SubscriptionId
+    $TenantID = $SubscriptionInfo | Select TenantId -First 1
+    $Thumbprint = $PfxCert.Thumbprint
+    $ConnectionFieldValues = @{"ApplicationId" = $ApplicationId; "TenantId" = $TenantID.TenantId; "CertificateThumbprint" = $Thumbprint; "SubscriptionId" = $SubscriptionId}
 
-     # Create an Automation connection asset named AzureRunAsConnection in the Automation account. This connection uses the service principal.
-     CreateAutomationConnectionAsset $ResourceGroup $AutomationAccountName $ConnectionAssetName $ConnectionTypeName $ConnectionFieldValues
+    # Create an Automation connection asset named AzureRunAsConnection in the Automation account. This connection uses the service principal.
+    CreateAutomationConnectionAsset $ResourceGroup $AutomationAccountName $ConnectionAssetName $ConnectionTypeName $ConnectionFieldValues
 
-     if ($CreateClassicRunAsAccount) {
+    if ($CreateClassicRunAsAccount) {
         # Create a Run As account by using a service principal
         $ClassicRunAsAccountCertifcateAssetName = "AzureClassicRunAsCertificate"
         $ClassicRunAsAccountConnectionAssetName = "AzureClassicRunAsConnection"
@@ -367,33 +374,34 @@ Function Get-RequiredModules
             $PfxCertPathForClassicRunAsAccount = $EnterpriseCertPathForClassicRunAsAccount
             $PfxCertPlainPasswordForClassicRunAsAccount = $EnterpriseCertPlainPasswordForClassicRunAsAccount
             $UploadMessage = $UploadMessage.Replace("#CERT#", $PfxCertPathForClassicRunAsAccount)
-         }
-         else {
- 	          $ClassicRunAsAccountCertificateName = $AutomationAccountName+$ClassicRunAsAccountCertifcateAssetName
- 	          $PfxCertPathForClassicRunAsAccount = Join-Path $env:TEMP ($ClassicRunAsAccountCertificateName + ".pfx")
- 	          $PfxCertPlainPasswordForClassicRunAsAccount = $SelfSignedCertPlainPassword
- 	          $CerCertPathForClassicRunAsAccount = Join-Path $env:TEMP ($ClassicRunAsAccountCertificateName + ".cer")
- 	          $UploadMessage = $UploadMessage.Replace("#CERT#", $CerCertPathForClassicRunAsAccount)
+            }
+        else {
+ 	        $ClassicRunAsAccountCertificateName = $AutomationAccountName+$ClassicRunAsAccountCertifcateAssetName
+ 	        $PfxCertPathForClassicRunAsAccount = Join-Path $env:TEMP ($ClassicRunAsAccountCertificateName + ".pfx")
+ 	        $PfxCertPlainPasswordForClassicRunAsAccount = $SelfSignedCertPlainPassword
+ 	        $CerCertPathForClassicRunAsAccount = Join-Path $env:TEMP ($ClassicRunAsAccountCertificateName + ".cer")
+ 	        $UploadMessage = $UploadMessage.Replace("#CERT#", $CerCertPathForClassicRunAsAccount)
 
- 	          CreateSelfSignedCertificate $KeyVaultName $ClassicRunAsAccountCertificateName $PfxCertPlainPasswordForClassicRunAsAccount $PfxCertPathForClassicRunAsAccount $CerCertPathForClassicRunAsAccount $SelfSignedCertNoOfMonthsUntilExpired
-         }
+ 	        CreateSelfSignedCertificate $KeyVaultName $ClassicRunAsAccountCertificateName $PfxCertPlainPasswordForClassicRunAsAccount $PfxCertPathForClassicRunAsAccount $CerCertPathForClassicRunAsAccount $SelfSignedCertNoOfMonthsUntilExpired
+        }
 
-         # Create the Automation certificate asset
-         CreateAutomationCertificateAsset $ResourceGroup $AutomationAccountName $ClassicRunAsAccountCertifcateAssetName $PfxCertPathForClassicRunAsAccount $PfxCertPlainPasswordForClassicRunAsAccount $false
+        # Create the Automation certificate asset
+        CreateAutomationCertificateAsset $ResourceGroup $AutomationAccountName $ClassicRunAsAccountCertifcateAssetName $PfxCertPathForClassicRunAsAccount $PfxCertPlainPasswordForClassicRunAsAccount $false
 
-         # Populate the ConnectionFieldValues
-         $SubscriptionName = $subscription.Subscription.Name
-         $ClassicRunAsAccountConnectionFieldValues = @{"SubscriptionName" = $SubscriptionName; "SubscriptionId" = $SubscriptionId; "CertificateAssetName" = $ClassicRunAsAccountCertifcateAssetName}
+        # Populate the ConnectionFieldValues
+        $SubscriptionName = $subscription.Subscription.Name
+        $ClassicRunAsAccountConnectionFieldValues = @{"SubscriptionName" = $SubscriptionName; "SubscriptionId" = $SubscriptionId; "CertificateAssetName" = $ClassicRunAsAccountCertifcateAssetName}
 
-         # Create an Automation connection asset named AzureRunAsConnection in the Automation account. This connection uses the service principal.
-         CreateAutomationConnectionAsset $ResourceGroup $AutomationAccountName $ClassicRunAsAccountConnectionAssetName $ClassicRunAsAccountConnectionTypeName $ClassicRunAsAccountConnectionFieldValues
+        # Create an Automation connection asset named AzureRunAsConnection in the Automation account. This connection uses the service principal.
+        CreateAutomationConnectionAsset $ResourceGroup $AutomationAccountName $ClassicRunAsAccountConnectionAssetName $ClassicRunAsAccountConnectionTypeName $ClassicRunAsAccountConnectionFieldValues
 
-         Write-Host -ForegroundColor red $UploadMessage
-     }
+        Write-Host -ForegroundColor red $UploadMessage
+    }
 
-     Remove-Item Cert:\LocalMachine\My\$Thumbprint -Force -ErrorAction SilentlyContinue
- }
+    Remove-Item Cert:\LocalMachine\My\$Thumbprint -Force -ErrorAction SilentlyContinue
+}
 
+#Get recursive properties from HashTable
 Function Get-RecursiveHashTable {
     param
     (
@@ -431,6 +439,7 @@ Function Get-RecursiveHashTable {
     }
 }
 
+#Get recursive properties from PSObject
 Function Get-RecursivePSObject {
     param
     (
@@ -471,6 +480,7 @@ Function Get-RecursivePSObject {
     }
 }
 
+#Invoke logger function
 Function Invoke-Logger
 {
     param(
@@ -550,6 +560,7 @@ Function Invoke-Logger
 
 }
 
+#Write stream to disk
 Function Write-Log
 {
     [CmdletBinding(SupportsShouldProcess=$true)]
@@ -561,5 +572,5 @@ Function Write-Log
     Out-File -FilePath $LogFile -InputObject $Message -Encoding utf8 -Append -NoClobber
 }
 
-
+#Export functions
 Export-ModuleMember -Function "Get-*", "Set-*", "Remove-*", "Upload-*", "Invoke-*", "Write-*", "CreateAzureRunAsAccount"

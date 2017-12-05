@@ -7,8 +7,8 @@
         TenantDomain        = ''
         
         #Web Application package information                    
-        RedistPath          = 'https://github.com/djpericsson/AzureWebAppDeploy/raw/master'
-        PackageURL          = 'https://exflowpackagemanager.azurewebsites.net'
+        RedistPath          = ''
+        PackageURL          = ''
         
         #Log file configuration                    
         LocalPath           = $env:TEMP
