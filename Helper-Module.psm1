@@ -495,67 +495,74 @@ Function Invoke-Logger
         $Error
     )
 
-    Switch ($Severity) 
-    { 
-        "I"     { $Severity = "INFO" }
-        "D"     { $Severity = "DEBUG" }
-        "W"     { $Severity = "WARNING" }
-        "E"     { $Severity = "ERROR"}
-        default { $Severity = "INFO" }
-    }
+    if ($configurationData.GlobalConfiguration.LogEnabled) {
+    
+        Try {
 
-    $date = [datetime]::UtcNow
+            Switch ($Severity) 
+            { 
+                "I"     { $Severity = "INFO" }
+                "D"     { $Severity = "DEBUG" }
+                "W"     { $Severity = "WARNING" }
+                "E"     { $Severity = "ERROR"}
+                default { $Severity = "INFO" }
+            }
 
-    If ($Error)
-    {
-        ForEach ($Line in $Message)
-        {
-            Write-Log -Message "[$(Get-Date $date -UFormat '%Y-%m-%dT%T%Z')] [$($Severity)] [$($Category)] [$($Line)]"
-        }
-        If ($Error.Exception.Message) { Write-Log -Message "[$(Get-Date $date -UFormat '%Y-%m-%dT%T%Z')] [$($Severity)] [$($Category)] [$($Error.Exception.Message)]" }
-        If ($Error.Exception.Innerexception) { Write-Log -Message "[$(Get-Date $date -UFormat '%Y-%m-%dT%T%Z')] [$($Severity)] [$($Category)] [$($Error.Exception.Innerexception)]" }
-        If ($Error.InvocationInfo.PositionMessage) {
-            ForEach ($Line in $Error.InvocationInfo.PositionMessage.Split("`n"))
-            {
-                Write-Log -Message "[$(Get-Date $date -UFormat '%Y-%m-%dT%T%Z')] [$($Severity)] [$($Category)] [$($Line)]"
-            }
-        }
-    }
-    Else
-    {
-        If ($Message)
-        {
-            If (($Message.GetType()).Name -eq "Hashtable")
-            {
-                Get-RecursiveHashTable -Object $Message -Category $Category
-            }
-            ElseIf ($Message -is [PSObject])
-            {
-                Get-RecursivePSObject -Object $Message -Category $Category
-            }
-            Else
+            $date = [datetime]::UtcNow
+
+            If ($Error)
             {
                 ForEach ($Line in $Message)
                 {
-                    If ($Line) {
-                        If (($Line.GetType()).Name -eq "ErrorRecord") {
-                            [string]$nLine = $Line
-                            if ($nLine -match "`n")
-                            {
-                                $values = $nLine.Split("`n")
-                                foreach ($value in $values) {
-                                    if (![string]::IsNullOrWhitespace($value)) { Write-Log -Message "[$(Get-Date $date -UFormat '%Y-%m-%dT%T%Z')] [$($Severity)] [$($Category)] [$($value)]" }
+                    Write-Log -Message "[$(Get-Date $date -UFormat '%Y-%m-%dT%T%Z')] [$($Severity)] [$($Category)] [$($Line)]"
+                }
+                If ($Error.Exception.Message) { Write-Log -Message "[$(Get-Date $date -UFormat '%Y-%m-%dT%T%Z')] [$($Severity)] [$($Category)] [$($Error.Exception.Message)]" }
+                If ($Error.Exception.Innerexception) { Write-Log -Message "[$(Get-Date $date -UFormat '%Y-%m-%dT%T%Z')] [$($Severity)] [$($Category)] [$($Error.Exception.Innerexception)]" }
+                If ($Error.InvocationInfo.PositionMessage) {
+                    ForEach ($Line in $Error.InvocationInfo.PositionMessage.Split("`n"))
+                    {
+                        Write-Log -Message "[$(Get-Date $date -UFormat '%Y-%m-%dT%T%Z')] [$($Severity)] [$($Category)] [$($Line)]"
+                    }
+                }
+            }
+            Else
+            {
+                If ($Message)
+                {
+                    If (($Message.GetType()).Name -eq "Hashtable")
+                    {
+                        Get-RecursiveHashTable -Object $Message -Category $Category
+                    }
+                    ElseIf ($Message -is [PSObject])
+                    {
+                        Get-RecursivePSObject -Object $Message -Category $Category
+                    }
+                    Else
+                    {
+                        ForEach ($Line in $Message)
+                        {
+                            If ($Line) {
+                                If (($Line.GetType()).Name -eq "ErrorRecord") {
+                                    [string]$nLine = $Line
+                                    if ($nLine -match "`n")
+                                    {
+                                        $values = $nLine.Split("`n")
+                                        foreach ($value in $values) {
+                                            if (![string]::IsNullOrWhitespace($value)) { Write-Log -Message "[$(Get-Date $date -UFormat '%Y-%m-%dT%T%Z')] [$($Severity)] [$($Category)] [$($value)]" }
+                                        }
+                                    } else {
+                                        Write-Log -Message "[$(Get-Date $date -UFormat '%Y-%m-%dT%T%Z')] [$($Severity)] [$($Category)] [$($nLine)]"
+                                    } 
+                                } else {
+                                    Write-Log -Message "[$(Get-Date $date -UFormat '%Y-%m-%dT%T%Z')] [$($Severity)] [$($Category)] [$($Line)]"
                                 }
-                            } else {
-                                Write-Log -Message "[$(Get-Date $date -UFormat '%Y-%m-%dT%T%Z')] [$($Severity)] [$($Category)] [$($nLine)]"
-                            } 
-                        } else {
-                            Write-Log -Message "[$(Get-Date $date -UFormat '%Y-%m-%dT%T%Z')] [$($Severity)] [$($Category)] [$($Line)]"
+                            }
                         }
                     }
                 }
             }
-        }
+
+        } Catch {}
     }
 
 }

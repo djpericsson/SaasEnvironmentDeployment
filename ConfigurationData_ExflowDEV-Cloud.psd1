@@ -3,8 +3,8 @@
     GlobalConfiguration = @{
         
         #Azure tenant information
-        SubscriptionId      = '692529f0-a0ae-4fb6-aa9e-a16df69f87cb'
-        TenantDomain        = 'dev.addlevel.net'
+        SubscriptionId      = '37c95fbb-6ced-4692-b3f4-474b16b766ad'
+        TenantDomain        = 'exflowdev.cloud'
         
         #Web Application package information                    
         RedistPath          = 'https://github.com/djpericsson/AzureWebAppDeploy/raw/master'
@@ -34,7 +34,7 @@
             Modules = @(
                 @{
                     Name                    = 'AzureRM'
-                    RequiredVersion         = '5.4.1'
+                    RequiredVersion         = '4.4.1'
                 }
             )
         }
@@ -54,7 +54,7 @@
         #Default Cors rules parameters
         CorsRules = @{
             AllowedHeaders  = @('x-ms-meta-abc','Content-Encoding','Content-Range','Accept-Ranges','x-ms-meta-data*','x-ms-meta-target*')
-            AllowedOrigins  = @('http://signup.exflow.debug','https://signup.exflow.cloud')
+            AllowedOrigins  = @('http://signup.exflow.debug','https://signup.exflowdev.cloud')
             MaxAgeInSeconds = 0
             ExposedHeaders  = @('Accept-Ranges','Content-Range','Content-Encoding','Content-Length','Content-Type')
             AllowedMethods  = @('Get')
@@ -95,7 +95,7 @@
                         aad_ClientSecret                  = ''
                         aad_TenantId                      = ''
                         FormsTestSitePassword             = '2'
-                        aad_PostLogoutRedirectUri         = 'https://navlab.exflow.cloud/ExFlowDynamics/close.aspx?signedout=yes'
+                        aad_PostLogoutRedirectUri         = 'https://navlab.exflowdev.cloud/ExFlowDynamics/close.aspx?signedout=yes'
                         userName                          = 'ADMUSR'
                         password                          = '******'
                         address                           = 'https://sd0-nav06:7347/CH_NAVUSERPASS/WS/ReplaceWithAPercentEncodedCompanyName/Codeunit/EXFWEB'
@@ -124,7 +124,7 @@
     SaaSService = @{
 
         #Resource Group name and configuration
-        ResourceGroup = 'SignUp-SAAS-Services'
+        ResourceGroup = 'SAAS-Services'
         Location      = 'West Europe'
 
         #Automation account credential parameters
@@ -148,7 +148,7 @@
         #Service Tags
         Tags = @{
             Customer  = 'SignUp'
-            Solution  = 'Exflow Cloud'
+            Solution  = 'Exflow DEV Cloud'
             Project   = 'SaaS'
         }
     }
@@ -158,7 +158,7 @@
         @{
 
             #Resource Group Name
-            'SignUp-xfw-prod-rg' = @{
+            'DEV-xfw-prod-rg' = @{
                 Location = 'West Europe'
 
                 #App Service Plan parameters
@@ -166,7 +166,7 @@
                     @{     
                         '[ResourceGroup]' = @{
                             Name = '[ResourceGroup]' 
-                            Tier = 'Free'
+                            Tier = 'Basic'
                         }
                     }
 
@@ -186,7 +186,7 @@
                     AzureRmAutomationCredential = @(
                         @{
                             Name        = '[ResourceGroup]'
-                            Description = 'Used for Exflow SaaS Azure Automation'
+                            Description = 'Used for ExflowDEV SaaS Azure Automation'
                         }
                     )
 
@@ -203,14 +203,14 @@
                 #Hybrid Connection parameters
                 HybridConnection = @{
                     Enabled   = $False
-                    Name      = 'SignUp-navlabexflowcloud'
-                    Namespace = 'SignUp-navlabexflowcloudbus'
+                    Name      = 'navlabexflowdevcloud'
+                    Namespace = 'navlabexflowdevcloudbus'
                 }
 
                 #Service Tags
                 Tags = @{
                     Customer = 'SignUp'
-                    Solution = 'Exflow Cloud'
+                    Solution = 'Exflow DEV Cloud'
                     Project  = 'SaaS'
                 }
             }
@@ -222,10 +222,10 @@
         @{
 
             #Customer name
-            'Addlevel Test' = @{
+            'Addlevel AB' = @{
 
                 #Resource Group belongings
-                ResourceGroup           = 'SignUp-xfw-prod-rg'
+                ResourceGroup           = 'DEV-xfw-prod-rg'
                 Location                = 'West Europe'
 
                 #Storage parameters
@@ -278,7 +278,7 @@
                 #Service Tags
                 Tags = @{
                     Customer = 'Addlevel AB'
-                    Solution = 'Exflow Cloud'
+                    Solution = 'Exflow DEV Cloud'
                     Project  = 'SaaS'
                 }
             }
