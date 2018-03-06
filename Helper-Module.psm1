@@ -1,4 +1,69 @@
-﻿#Remove undesired characters from string
+﻿Function Get-cAzureRmResource {
+    param(
+        [Parameter(Mandatory=$True)]
+        [string]$Type,
+
+        [Parameter(Mandatory=$False)]
+        [string]$Name,
+
+        [Parameter(Mandatory=$False)]
+        $Parameters,
+
+        [Parameter(Mandatory=$False)]
+        [bool]$Log = $true
+    )
+    [string]$command = "Get-$Type"
+    if ($Name) { $command = "$command -Name $Name"}
+    if ($Parameters) { $command = "$command @Parameters"}
+    if ($cAzureRmResource = Invoke-Expression $command) {
+        if ($Log) { Invoke-Logger -Message $cAzureRmResource -Severity I -Category $Type }
+    }
+    return $cAzureRmResource
+}
+
+Function New-cAzureRmResource {
+    param(
+        [Parameter(Mandatory=$True)]
+        [string]$Type,
+
+        [Parameter(Mandatory=$True)]
+        $Parameters
+    )
+    Invoke-Logger -Message "New-$Type -$($Parameters.Keys.ForEach({"$_ '$($Parameters.$_)'"}) -join ' -')" -Severity I -Category $Type
+    [string]$command = "New-$Type @Parameters"
+    Try {
+        $cAzureRmResource = Invoke-Expression $command
+        Invoke-Logger -Message $cAzureRmResource -Severity I -Category $Type
+    }
+    Catch {
+        Invoke-Logger -Message $_ -Severity E -Category $Type
+        Write-Error $_
+    }
+    return $cAzureRmResource
+}
+
+Function Set-cAzureRmResource {
+    param(
+        [Parameter(Mandatory=$True)]
+        [string]$Type,
+
+        [Parameter(Mandatory=$True)]
+        $Parameters
+    )
+    Invoke-Logger -Message "Set-$Type -$($Parameters.Keys.ForEach({"$_ '$($Parameters.$_)'"}) -join ' -')" -Severity I -Category $Type
+    [string]$command = "Set-$Type @Parameters"
+    Try {
+        $cAzureRmResource = Invoke-Expression $command
+        Invoke-Logger -Message $cAzureRmResource -Severity I -Category $Type
+    }
+    Catch {
+        Invoke-Logger -Message $_ -Severity E -Category $Type
+        Write-Error $_
+    }
+    return $cAzureRmResource
+}
+
+#Remove undesired characters from string
 Function Remove-IllegalCharactersFromString {
     param(
         [Parameter(Mandatory=$True)]
@@ -35,7 +100,7 @@ Function Get-TruncatedStringHash
         $Length = 21
     )
     $StringBuilder = New-Object System.Text.StringBuilder 
-    [System.Security.Cryptography.HashAlgorithm]::Create($HashName).ComputeHash([System.Text.Encoding]::UTF8.GetBytes($String))|%{ 
+    [System.Security.Cryptography.HashAlgorithm]::Create($HashName).ComputeHash([System.Text.Encoding]::UTF8.GetBytes($String))| foreach-object{ 
         [Void]$StringBuilder.Append($_.ToString("x2"))
     } 
     $StringBuilder.ToString().Substring(0,$Length)
@@ -159,7 +224,7 @@ Function Get-RequiredModules
 
     ForEach ($Module in $Modules)
     {
-        $cModule = Get-Module -ListAvailable -Name $Module.Name | Sort-Object -Descending | Select -First 1
+        $cModule = Get-Module -ListAvailable -Name $Module.Name | Sort-Object -Descending | Select-Object -First 1
         If (!$cModule) {
             Write-Warning "Module $($Module.Name) is not installed."
             Write-Warning "`tInstall-Module -Name $($Module.Name) -RequiredVersion $($Module.RequiredVersion)"
@@ -254,7 +319,7 @@ function CreateAzureRunAsAccount
         $keyValue = [System.Convert]::ToBase64String($PfxCert.GetRawCertData())
         $KeyId = (New-Guid).Guid
 
-        $azureRmModuleVersion = Get-Module -ListAvailable -Name AzureRm | Sort-Object -Descending | Select -First 1
+        $azureRmModuleVersion = Get-Module -ListAvailable -Name AzureRm | Sort-Object -Descending | Select-Object -First 1
 
         $KeyCredential = $null
         If ("$($azureRmModuleVersion.Version.Major).$($azureRmModuleVersion.Version.Minor).$($azureRmModuleVersion.Version.Build)" -le "4.2.0") {
@@ -284,14 +349,14 @@ function CreateAzureRunAsAccount
         $GetServicePrincipal = Get-AzureRmADServicePrincipal -ObjectId $ServicePrincipal.Id
 
         # Sleep here for a few seconds to allow the service principal application to become active (ordinarily takes a few seconds)
-        Sleep -s 15
+        Start-Sleep -s 15
 
         $NewRole = New-AzureRMRoleAssignment -RoleDefinitionName Contributor -ServicePrincipalName $Application.ApplicationId -ErrorAction SilentlyContinue
 
         $Retries = 0;
         While ($NewRole -eq $null -and $Retries -le 6)
         {
- 	    Sleep -s 10
+        Start-Sleep -s 10
  	    New-AzureRMRoleAssignment -RoleDefinitionName Contributor -ServicePrincipalName $Application.ApplicationId | Write-Verbose -ErrorAction SilentlyContinue
  	    $NewRole = Get-AzureRMRoleAssignment -ServicePrincipalName $Application.ApplicationId -ErrorAction SilentlyContinue
  	    $Retries++;
@@ -354,7 +419,7 @@ function CreateAzureRunAsAccount
 
     # Populate the ConnectionFieldValues
     $SubscriptionInfo = Get-AzureRmSubscription -SubscriptionId $SubscriptionId
-    $TenantID = $SubscriptionInfo | Select TenantId -First 1
+    $TenantID = $SubscriptionInfo | Select-Object TenantId -First 1
     $Thumbprint = $PfxCert.Thumbprint
     $ConnectionFieldValues = @{"ApplicationId" = $ApplicationId; "TenantId" = $TenantID.TenantId; "CertificateThumbprint" = $Thumbprint; "SubscriptionId" = $SubscriptionId}
 
@@ -580,4 +645,4 @@ Function Write-Log
 }
 
 #Export functions
-Export-ModuleMember -Function "Get-*", "Set-*", "Remove-*", "Upload-*", "Invoke-*", "Write-*", "CreateAzureRunAsAccount"
+Export-ModuleMember -Function "Get-*", "Set-*", "New-*", "Remove-*", "Upload-*", "Invoke-*", "Write-*", "CreateAzureRunAsAccount"
